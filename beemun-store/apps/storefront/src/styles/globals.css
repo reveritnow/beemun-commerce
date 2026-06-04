@@ -3,60 +3,6 @@
 @import "tailwindcss/utilities";
 
 body { background: #fffaf0; color: #1f2a1f; }
-
-@layer utilities {
-  .no-scrollbar::-webkit-scrollbar { display: none; }
-  .no-scrollbar::-webkit-scrollbar-track { background-color: transparent; }
-  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-  input:focus ~ label, input:not(:placeholder-shown) ~ label { @apply -translate-y-2 text-xsmall-regular; }
-  input:focus ~ label { @apply left-0; }
-  input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus, textarea:-webkit-autofill, textarea:-webkit-autofill:hover, textarea:-webkit-autofill:focus, select:-webkit-autofill, select:-webkit-autofill:hover, select:-webkit-autofill:focus { border: 1px solid #212121; -webkit-text-fill-color: #212121; -webkit-box-shadow: 0 0 0px 1000px #fff inset; transition: background-color 5000s ease-in-out 0s; }
-}
-
-@layer components {
-  .content-container { @apply max-w-[1440px] w-full mx-auto px-6; }
-  .contrast-btn { @apply px-4 py-2 border border-black rounded-full hover:bg-black hover:text-white transition-colors duration-200 ease-in; }
-  .text-xsmall-regular { @apply text-[10px] leading-4 font-normal; }
-  .text-small-regular { @apply text-xs leading-5 font-normal; }
-  .text-small-semi { @apply text-xs leading-5 font-semibold; }
-  .text-base-regular { @apply text-sm leading-6 font-normal; }
-  .text-base-semi { @apply text-sm leading-6 font-semibold; }
-  .text-large-regular { @apply text-base leading-6 font-normal; }
-  .text-large-semi { @apply text-base leading-6 font-semibold; }
-  .text-xl-regular { @apply text-2xl leading-[36px] font-normal; }
-  .text-xl-semi { @apply text-2xl leading-[36px] font-semibold; }
-  .text-2xl-regular { @apply text-[30px] leading-[48px] font-normal; }
-  .text-2xl-semi { @apply text-[30px] leading-[48px] font-semibold; }
-  .text-3xl-regular { @apply text-[32px] leading-[44px] font-normal; }
-  .text-3xl-semi { @apply text-[32px] leading-[44px] font-semibold; }
-}
-
-.beemun-hero { min-height: 72vh; display: grid; grid-template-columns: 1.1fr .9fr; gap: 54px; align-items: center; max-width: 1180px; margin: 0 auto; padding: 82px 24px 58px; }
-.beemun-eyebrow { color: #6f7f58; font-size: 13px; font-weight: 900; letter-spacing: .22em; text-transform: uppercase; margin-bottom: 14px; }
-.beemun-hero h1 { font-size: clamp(44px,6vw,82px); line-height: .95; letter-spacing: -.06em; margin-bottom: 24px; font-weight: 900; }
-.beemun-hero p { color: #5f6b55; line-height: 1.7; }
-.beemun-hero-copy > p:not(.beemun-eyebrow) { font-size: 18px; max-width: 650px; }
-.beemun-actions { display: flex; gap: 14px; margin-top: 32px; flex-wrap: wrap; }
-.beemun-btn-primary, .beemun-btn-secondary { border-radius: 999px; padding: 15px 24px; font-weight: 900; display: inline-block; transition: all 180ms ease; }
-.beemun-btn-primary { background: #31452b; color: #fffaf0; box-shadow: 0 12px 30px rgba(49,69,43,.18); }
-.beemun-btn-primary:hover { transform: translateY(-2px); background: #1f2a1f; }
-.beemun-btn-secondary { border: 1px solid #d9ccb1; color: #31452b; background: #fffaf0; }
-.beemun-btn-secondary:hover { background: #31452b; color: #fffaf0; border-color: #31452b; }
-.beemun-hero-visual { min-height: 430px; border-radius: 42px; background: radial-gradient(circle at 30% 25%, #fff6df 0, #fff6df 11%, transparent 12%), linear-gradient(135deg,#d8c7a1,#f3ead4 45%,#aebd94); box-shadow: 0 30px 80px rgba(49,69,43,.18); }
-.beemun-section { max-width: 1180px; margin: 0 auto; padding: 58px 24px; }
-.beemun-soft-section { max-width: none; padding-left: calc((100% - 1180px)/2 + 24px); padding-right: calc((100% - 1180px)/2 + 24px); background: #f5eddd; }
-.beemun-section-head { max-width: 760px; margin-bottom: 28px; }
-.beemun-section-head h2, .beemun-zps-grid h2, .beemun-seller-cta h2 { font-size: clamp(34px,4vw,58px); line-height: 1; letter-spacing: -.055em; font-weight: 900; margin-bottom: 14px; }
-.beemun-section-head p:not(.beemun-eyebrow), .beemun-zps-grid p { color: #5f6b55; line-height: 1.7; font-size: 17px; }
-.beemun-four-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 18px; }
-.beemun-three-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 18px; }
-.beemun-card { background: #fffdf6; border: 1px solid #e2d5bb; border-radius: 24px; padding: 24px; min-height: 150px; box-shadow: 0 12px 34px rgba(49,69,43,.06); }
-.beemun-card h3 { font-weight: 900; font-size: 19px; margin-bottom: 10px; letter-spacing: -.02em; }
-.beemun-card p { color: #5f6b55; line-height: 1.6; }
-.beemun-category-card { min-height: 250px; }
-.beemun-card-image { height: 118px; border-radius: 18px; margin-bottom: 18px; background: linear-gradient(135deg,#d8c7a1,#eff0d8,#aebd94); }
-.beemun-zps-grid { display: grid; grid-template-columns: .85fr 1.15fr; gap: 34px; align-items: start; }
-.beemun-medusa-products { margin-top: 12px; }
-.beemun-seller-cta { max-width: 900px; margin: 70px auto; padding: 58px 24px; text-align: center; border: 1px solid #e2d5bb; border-radius: 34px; background: #fffdf6; box-shadow: 0 20px 60px rgba(49,69,43,.08); }
-.beemun-seller-cta p { color: #5f6b55; margin: 0 auto 24px; max-width: 620px; line-height: 1.7; }
-@media(max-width:900px){ .beemun-hero,.beemun-zps-grid{grid-template-columns:1fr}.beemun-hero{padding:54px 18px;min-height:auto}.beemun-hero-visual{min-height:280px}.beemun-section,.beemun-soft-section{padding:42px 18px}.beemun-four-grid,.beemun-three-grid{grid-template-columns:1fr} }
+@layer utilities { .no-scrollbar::-webkit-scrollbar{display:none}.no-scrollbar::-webkit-scrollbar-track{background-color:transparent}.no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}input:focus~label,input:not(:placeholder-shown)~label{@apply -translate-y-2 text-xsmall-regular}input:focus~label{@apply left-0} }
+@layer components { .content-container{@apply max-w-[1440px] w-full mx-auto px-6}.contrast-btn{@apply px-4 py-2 border border-black rounded-full hover:bg-black hover:text-white transition-colors duration-200 ease-in}.text-xsmall-regular{@apply text-[10px] leading-4 font-normal}.text-small-regular{@apply text-xs leading-5 font-normal}.text-small-semi{@apply text-xs leading-5 font-semibold}.text-base-regular{@apply text-sm leading-6 font-normal}.text-base-semi{@apply text-sm leading-6 font-semibold}.text-large-regular{@apply text-base leading-6 font-normal}.text-large-semi{@apply text-base leading-6 font-semibold}.text-xl-regular{@apply text-2xl leading-[36px] font-normal}.text-xl-semi{@apply text-2xl leading-[36px] font-semibold}.text-2xl-regular{@apply text-[30px] leading-[48px] font-normal}.text-2xl-semi{@apply text-[30px] leading-[48px] font-semibold}.text-3xl-regular{@apply text-[32px] leading-[44px] font-normal}.text-3xl-semi{@apply text-[32px] leading-[44px] font-semibold} }
+.beemun-hero{min-height:72vh;display:grid;grid-template-columns:1.1fr .9fr;gap:54px;align-items:center;max-width:1180px;margin:0 auto;padding:82px 24px 58px}.beemun-eyebrow{color:#6f7f58;font-size:13px;font-weight:900;letter-spacing:.22em;text-transform:uppercase;margin-bottom:14px}.beemun-hero h1{font-size:clamp(44px,6vw,82px);line-height:.95;letter-spacing:-.06em;margin-bottom:24px;font-weight:900}.beemun-hero p{color:#5f6b55;line-height:1.7}.beemun-hero-copy>p:not(.beemun-eyebrow){font-size:18px;max-width:650px}.beemun-actions{display:flex;gap:14px;margin-top:32px;flex-wrap:wrap}.beemun-btn-primary,.beemun-btn-secondary{border-radius:999px;padding:15px 24px;font-weight:900;display:inline-block;transition:all 180ms ease}.beemun-btn-primary{background:#31452b;color:#fffaf0;box-shadow:0 12px 30px rgba(49,69,43,.18)}.beemun-btn-primary:hover{transform:translateY(-2px);background:#1f2a1f}.beemun-btn-secondary{border:1px solid #d9ccb1;color:#31452b;background:#fffaf0}.beemun-btn-secondary:hover{background:#31452b;color:#fffaf0;border-color:#31452b}.beemun-hero-visual{min-height:430px;border-radius:42px;background:radial-gradient(circle at 30% 25%,#fff6df 0,#fff6df 11%,transparent 12%),linear-gradient(135deg,#d8c7a1,#f3ead4 45%,#aebd94);box-shadow:0 30px 80px rgba(49,69,43,.18)}.beemun-section{max-width:1180px;margin:0 auto;padding:58px 24px}.beemun-soft-section{max-width:none;padding-left:calc((100% - 1180px)/2 + 24px);padding-right:calc((100% - 1180px)/2 + 24px);background:#f5eddd}.beemun-section-head{max-width:760px;margin-bottom:28px}.beemun-section-head h2,.beemun-zps-grid h2,.beemun-seller-cta h2{font-size:clamp(34px,4vw,58px);line-height:1;letter-spacing:-.055em;font-weight:900;margin-bottom:14px}.beemun-section-head p:not(.beemun-eyebrow),.beemun-zps-grid p{color:#5f6b55;line-height:1.7;font-size:17px}.beemun-four-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}.beemun-three-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}.beemun-four-mini-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.beemun-card{background:#fffdf6;border:1px solid #e2d5bb;border-radius:24px;padding:24px;min-height:150px;box-shadow:0 12px 34px rgba(49,69,43,.06)}.beemun-card h3{font-weight:900;font-size:19px;margin-bottom:10px;letter-spacing:-.02em}.beemun-card p{color:#5f6b55;line-height:1.6}.beemun-category-card{min-height:250px}.beemun-card-image{height:118px;border-radius:18px;margin-bottom:18px;background:linear-gradient(135deg,#d8c7a1,#eff0d8,#aebd94)}.beemun-zps-grid{display:grid;grid-template-columns:.85fr 1.15fr;gap:34px;align-items:start}.beemun-step{display:inline-flex;width:34px;height:34px;border-radius:999px;align-items:center;justify-content:center;background:#31452b;color:#fffaf0;font-weight:900;margin-bottom:18px}.beemun-product-card{background:#fffdf6;border:1px solid #e2d5bb;border-radius:24px;padding:18px;box-shadow:0 16px 40px rgba(49,69,43,.08)}.beemun-product-card span{display:inline-flex;margin-bottom:9px;border-radius:999px;background:#e7efd9;color:#31452b;padding:5px 10px;font-size:11px;font-weight:900}.beemun-product-card h3{font-size:19px;font-weight:900}.beemun-product-card p,.beemun-product-card small{display:block;color:#5f6b55;margin-top:5px}.beemun-product-card strong{display:block;margin-top:14px;font-size:20px}.beemun-pill-row{display:flex;gap:12px;flex-wrap:wrap}.beemun-pill-row span{border:1px solid #e2d5bb;background:#fffdf6;border-radius:999px;padding:10px 16px;font-weight:800}.beemun-maker-card{background:#fffdf6;border:1px solid #e2d5bb;border-radius:24px;padding:24px;box-shadow:0 12px 34px rgba(49,69,43,.06)}.beemun-maker-mark{width:42px;height:42px;border-radius:999px;background:#31452b;color:#fffaf0;display:flex;align-items:center;justify-content:center;font-weight:900;margin-bottom:16px}.beemun-maker-card h3{font-size:20px;font-weight:900}.beemun-maker-card p{color:#5f6b55;margin:8px 0 16px}.beemun-maker-card a{font-weight:900;color:#31452b}.beemun-seller-cta{max-width:900px;margin:70px auto;padding:58px 24px;text-align:center;border:1px solid #e2d5bb;border-radius:34px;background:#fffdf6;box-shadow:0 20px 60px rgba(49,69,43,.08)}.beemun-seller-cta p{color:#5f6b55;margin:0 auto 24px;max-width:620px;line-height:1.7}.beemun-footer{background:#17281d;color:#fffaf0;padding:70px 24px 28px;margin-top:70px}.beemun-footer-inner{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:1.1fr 1.6fr;gap:60px}.beemun-footer-logo{font-size:20px;font-weight:900;letter-spacing:.18em}.beemun-footer-brand p{color:#d9ccb1;margin-top:18px;max-width:360px;line-height:1.7}.beemun-footer-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:28px}.beemun-footer h3{font-size:13px;text-transform:uppercase;letter-spacing:.16em;margin-bottom:16px;color:#fff}.beemun-footer li{margin-bottom:10px}.beemun-footer a{color:#d9ccb1}.beemun-footer a:hover{color:#fff}.beemun-footer-bottom{max-width:1180px;margin:48px auto 0;padding-top:22px;border-top:1px solid rgba(255,250,240,.16);display:flex;justify-content:space-between;color:#d9ccb1}.beemun-footer ul{padding:0;margin:0;list-style:none}@media(max-width:900px){.beemun-hero,.beemun-zps-grid,.beemun-footer-inner{grid-template-columns:1fr}.beemun-hero{padding:54px 18px;min-height:auto}.beemun-hero-visual{min-height:280px}.beemun-section,.beemun-soft-section{padding:42px 18px}.beemun-four-grid,.beemun-three-grid,.beemun-four-mini-grid,.beemun-footer-grid{grid-template-columns:1fr}.beemun-footer-bottom{flex-direction:column;gap:12px}}
