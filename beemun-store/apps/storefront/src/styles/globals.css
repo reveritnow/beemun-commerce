@@ -2,111 +2,46 @@
 @import "tailwindcss/components";
 @import "tailwindcss/utilities";
 
+body { background: #fffaf0; color: #1f2a1f; }
+
 @layer utilities {
-  /* Chrome, Safari and Opera */
-  .no-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
-
-  .no-scrollbar::-webkit-scrollbar-track {
-    background-color: transparent;
-  }
-
-  .no-scrollbar {
-    -ms-overflow-style: none; /* IE and Edge */
-    scrollbar-width: none; /* Firefox */
-  }
-
-  input:focus ~ label,
-  input:not(:placeholder-shown) ~ label {
-    @apply -translate-y-2 text-xsmall-regular;
-  }
-
-  input:focus ~ label {
-    @apply left-0;
-  }
-
-  input:-webkit-autofill,
-  input:-webkit-autofill:hover,
-  input:-webkit-autofill:focus,
-  textarea:-webkit-autofill,
-  textarea:-webkit-autofill:hover,
-  textarea:-webkit-autofill:focus,
-  select:-webkit-autofill,
-  select:-webkit-autofill:hover,
-  select:-webkit-autofill:focus {
-    border: 1px solid #212121;
-    -webkit-text-fill-color: #212121;
-    -webkit-box-shadow: 0 0 0px 1000px #fff inset;
-    transition: background-color 5000s ease-in-out 0s;
-  }
-
-  input[type="search"]::-webkit-search-decoration,
-  input[type="search"]::-webkit-search-cancel-button,
-  input[type="search"]::-webkit-search-results-button,
-  input[type="search"]::-webkit-search-results-decoration {
-    -webkit-appearance: none;
-  }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar::-webkit-scrollbar-track { background-color: transparent; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  input:focus ~ label, input:not(:placeholder-shown) ~ label { @apply -translate-y-2 text-xsmall-regular; }
+  input:focus ~ label { @apply left-0; }
+  input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus, textarea:-webkit-autofill, textarea:-webkit-autofill:hover, textarea:-webkit-autofill:focus, select:-webkit-autofill, select:-webkit-autofill:hover, select:-webkit-autofill:focus { border: 1px solid #212121; -webkit-text-fill-color: #212121; -webkit-box-shadow: 0 0 0px 1000px #fff inset; transition: background-color 5000s ease-in-out 0s; }
+  input[type="search"]::-webkit-search-decoration, input[type="search"]::-webkit-search-cancel-button, input[type="search"]::-webkit-search-results-button, input[type="search"]::-webkit-search-decoration { -webkit-appearance: none; }
 }
 
 @layer components {
-  .content-container {
-    @apply max-w-[1440px] w-full mx-auto px-6;
-  }
-
-  .contrast-btn {
-    @apply px-4 py-2 border border-black rounded-full hover:bg-black hover:text-white transition-colors duration-200 ease-in;
-  }
-
-  .text-xsmall-regular {
-    @apply text-[10px] leading-4 font-normal;
-  }
-
-  .text-small-regular {
-    @apply text-xs leading-5 font-normal;
-  }
-
-  .text-small-semi {
-    @apply text-xs leading-5 font-semibold;
-  }
-
-  .text-base-regular {
-    @apply text-sm leading-6 font-normal;
-  }
-
-  .text-base-semi {
-    @apply text-sm leading-6 font-semibold;
-  }
-
-  .text-large-regular {
-    @apply text-base leading-6 font-normal;
-  }
-
-  .text-large-semi {
-    @apply text-base leading-6 font-semibold;
-  }
-
-  .text-xl-regular {
-    @apply text-2xl leading-[36px] font-normal;
-  }
-
-  .text-xl-semi {
-    @apply text-2xl leading-[36px] font-semibold;
-  }
-
-  .text-2xl-regular {
-    @apply text-[30px] leading-[48px] font-normal;
-  }
-
-  .text-2xl-semi {
-    @apply text-[30px] leading-[48px] font-semibold;
-  }
-
-  .text-3xl-regular {
-    @apply text-[32px] leading-[44px] font-normal;
-  }
-
-  .text-3xl-semi {
-    @apply text-[32px] leading-[44px] font-semibold;
-  }
+  .content-container { @apply max-w-[1440px] w-full mx-auto px-6; }
+  .contrast-btn { @apply px-4 py-2 border border-black rounded-full hover:bg-black hover:text-white transition-colors duration-200 ease-in; }
+  .text-xsmall-regular { @apply text-[10px] leading-4 font-normal; }
+  .text-small-regular { @apply text-xs leading-5 font-normal; }
+  .text-small-semi { @apply text-xs leading-5 font-semibold; }
+  .text-base-regular { @apply text-sm leading-6 font-normal; }
+  .text-base-semi { @apply text-sm leading-6 font-semibold; }
+  .text-large-regular { @apply text-base leading-6 font-normal; }
+  .text-large-semi { @apply text-base leading-6 font-semibold; }
+  .text-xl-regular { @apply text-2xl leading-[36px] font-normal; }
+  .text-xl-semi { @apply text-2xl leading-[36px] font-semibold; }
+  .text-2xl-regular { @apply text-[30px] leading-[48px] font-normal; }
+  .text-2xl-semi { @apply text-[30px] leading-[48px] font-semibold; }
+  .text-3xl-regular { @apply text-[32px] leading-[44px] font-normal; }
+  .text-3xl-semi { @apply text-[32px] leading-[44px] font-semibold; }
 }
+
+.beemun-hero { min-height: 72vh; display: grid; grid-template-columns: 1.1fr .9fr; gap: 54px; align-items: center; max-width: 1180px; margin: 0 auto; padding: 82px 24px; }
+.beemun-eyebrow { color: #6f7f58; font-size: 13px; font-weight: 900; letter-spacing: .22em; text-transform: uppercase; margin-bottom: 14px; }
+.beemun-hero h1 { font-size: clamp(44px,6vw,82px); line-height: .95; letter-spacing: -.06em; margin-bottom: 24px; font-weight: 900; }
+.beemun-hero p { color: #5f6b55; line-height: 1.7; }
+.beemun-hero-copy > p:not(.beemun-eyebrow) { font-size: 18px; max-width: 650px; }
+.beemun-actions { display: flex; gap: 14px; margin-top: 32px; flex-wrap: wrap; }
+.beemun-btn-primary, .beemun-btn-secondary { border-radius: 999px; padding: 15px 24px; font-weight: 900; display: inline-block; transition: all 180ms ease; }
+.beemun-btn-primary { background: #31452b; color: #fffaf0; box-shadow: 0 12px 30px rgba(49,69,43,.18); }
+.beemun-btn-primary:hover { transform: translateY(-2px); background: #1f2a1f; }
+.beemun-btn-secondary { border: 1px solid #d9ccb1; color: #31452b; background: #fffaf0; }
+.beemun-btn-secondary:hover { background: #31452b; color: #fffaf0; border-color: #31452b; }
+.beemun-hero-visual { min-height: 430px; border-radius: 42px; background: radial-gradient(circle at 30% 25%, #fff6df 0, #fff6df 11%, transparent 12%), linear-gradient(135deg,#d8c7a1,#f3ead4 45%,#aebd94); box-shadow: 0 30px 80px rgba(49,69,43,.18); }
+@media(max-width:900px){ .beemun-hero { grid-template-columns: 1fr; padding: 54px 18px; min-height: auto; } .beemun-hero-visual { min-height: 280px; } }
