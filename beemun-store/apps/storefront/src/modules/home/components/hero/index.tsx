@@ -3,27 +3,29 @@ const Hero = () => {
     <section className="beemun-hero">
       <div className="beemun-hero-copy">
         <p className="beemun-eyebrow">ZPS 100 Marketplace</p>
-        <h1>Products you can trust before you buy.</h1>
+        <h1>Pure for You. Pure for Earth.</h1>
         <p>
-          BEEMUN curates zero-plastic, zero-synthetic products with visible
-          ingredients, packaging details, maker accountability, and review signals
-          on every listing.
+          A curated marketplace for zero-plastic and zero-synthetic products,
+          reviewed for ingredient clarity, packaging transparency, and full
+          disclosure before they go live.
         </p>
         <div className="beemun-actions">
-          <a href="#featured" className="beemun-btn-primary">Explore ZPS Products</a>
-          <a href="#zps" className="beemun-btn-secondary">See the Standard</a>
+          <a href="#featured" className="beemun-btn-primary">Shop ZPS 100 products</a>
+          <a href="#zps" className="beemun-btn-secondary">Learn about ZPS</a>
         </div>
         <div className="beemun-hero-proof">
-          <span>✓ Ingredient clarity</span>
-          <span>✓ Packaging disclosure</span>
-          <span>✓ Maker reviewed</span>
+          <span>Zero Plastic</span>
+          <span>Zero Synthetic</span>
+          <span>Full Disclosure</span>
         </div>
       </div>
-      <div className="beemun-hero-visual" aria-label="BEEMUN product trust visual">
+      <div className="beemun-hero-visual" aria-label="BEEMUN ZPS 100 trust visual">
         <div className="beemun-hero-badge">ZPS 100</div>
-        <div className="beemun-symbol-card main"><span>♻</span><strong>Zero Plastic</strong></div>
-        <div className="beemun-symbol-card"><span>✦</span><strong>Zero Synthetic</strong></div>
-        <div className="beemun-symbol-card"><span>✓</span><strong>Full Disclosure</strong></div>
+        <div className="beemun-seal-grid">
+          <div><span>♻</span><strong>Zero Plastic</strong><small>Packaging reviewed</small></div>
+          <div><span>✦</span><strong>Zero Synthetic</strong><small>Ingredients checked</small></div>
+          <div><span>✓</span><strong>Full Disclosure</strong><small>Visible before purchase</small></div>
+        </div>
       </div>
     </section>
   )
