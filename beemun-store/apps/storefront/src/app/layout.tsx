@@ -4,6 +4,12 @@ import "styles/globals.css"
 
 export const metadata: Metadata = {
   metadataBase: new URL(getBaseURL()),
+  title: {
+    default: "BEEMUN | ZPS 100 Marketplace",
+    template: "%s | BEEMUN",
+  },
+  description:
+    "Pure for You. Pure for Earth. A curated ZPS 100 marketplace for zero plastic, zero synthetic products with full disclosure.",
 }
 
 export default function RootLayout(props: { children: React.ReactNode }) {
