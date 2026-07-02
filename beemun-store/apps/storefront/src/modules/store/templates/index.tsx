@@ -19,22 +19,26 @@ const StoreTemplate = ({
   const sort = sortBy || "created_at"
 
   return (
-    <div
-      className="flex flex-col small:flex-row small:items-start py-6 content-container"
-      data-testid="category-container"
-    >
-      <RefinementList sortBy={sort} />
-      <div className="w-full">
-        <div className="mb-8 text-2xl-semi">
-          <h1 data-testid="store-page-title">All products</h1>
+    <div className="beemun-listing-page content-container" data-testid="category-container">
+      <div className="beemun-listing-hero">
+        <p className="beemun-eyebrow">Shop BEEMUN</p>
+        <h1 data-testid="store-page-title">All ZPS 100 products</h1>
+        <p>
+          Browse products reviewed for zero plastic intent, zero synthetic intent,
+          full disclosure, and maker accountability.
+        </p>
+      </div>
+      <div className="beemun-listing-layout">
+        <RefinementList sortBy={sort} />
+        <div className="beemun-listing-grid">
+          <Suspense fallback={<SkeletonProductGrid />}>
+            <PaginatedProducts
+              sortBy={sort}
+              page={pageNumber}
+              countryCode={countryCode}
+            />
+          </Suspense>
         </div>
-        <Suspense fallback={<SkeletonProductGrid />}>
-          <PaginatedProducts
-            sortBy={sort}
-            page={pageNumber}
-            countryCode={countryCode}
-          />
-        </Suspense>
       </div>
     </div>
   )
