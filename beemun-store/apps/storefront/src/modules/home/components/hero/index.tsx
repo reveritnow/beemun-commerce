@@ -10,21 +10,38 @@ const Hero = () => {
           disclosure before they go live.
         </p>
         <div className="beemun-actions">
-          <a href="#featured" className="beemun-btn-primary">Shop ZPS 100 products</a>
-          <a href="#zps" className="beemun-btn-secondary">Learn about ZPS</a>
+          <a href="#featured" className="beemun-btn-primary">
+            Shop ZPS 100 products
+          </a>
+          <a href="#zps" className="beemun-btn-secondary">
+            Learn about ZPS
+          </a>
         </div>
         <div className="beemun-hero-proof">
           <span>Zero Plastic</span>
           <span>Zero Synthetic</span>
           <span>Full Disclosure</span>
+          <span>BEEMUN Reviewed</span>
         </div>
       </div>
       <div className="beemun-hero-visual" aria-label="BEEMUN ZPS 100 trust visual">
         <div className="beemun-hero-badge">ZPS 100</div>
         <div className="beemun-seal-grid">
-          <div><span>♻</span><strong>Zero Plastic</strong><small>Packaging reviewed</small></div>
-          <div><span>✦</span><strong>Zero Synthetic</strong><small>Ingredients checked</small></div>
-          <div><span>✓</span><strong>Full Disclosure</strong><small>Visible before purchase</small></div>
+          <div>
+            <span>ZP</span>
+            <strong>Zero Plastic</strong>
+            <small>Packaging reviewed</small>
+          </div>
+          <div>
+            <span>ZS</span>
+            <strong>Zero Synthetic</strong>
+            <small>Ingredients checked</small>
+          </div>
+          <div>
+            <span>FD</span>
+            <strong>Full Disclosure</strong>
+            <small>Visible before purchase</small>
+          </div>
         </div>
       </div>
     </section>
