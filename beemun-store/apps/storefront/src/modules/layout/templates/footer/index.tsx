@@ -12,23 +12,32 @@ export default async function Footer() {
     <footer className="beemun-footer">
       <div className="beemun-footer-inner">
         <div className="beemun-footer-brand">
-          <LocalizedClientLink href="/" className="beemun-footer-logo">BEEMUN</LocalizedClientLink>
+          <LocalizedClientLink href="/" className="beemun-footer-logo">
+            BEEMUN
+          </LocalizedClientLink>
           <p>Pure for You. Pure for Earth.</p>
-          <p>A curated ZPS 100 marketplace for products reviewed for ingredient clarity, packaging transparency, and maker accountability.</p>
+          <p>
+            A curated ZPS 100 marketplace for products reviewed for ingredient
+            clarity, packaging transparency, and maker accountability.
+          </p>
         </div>
         <div className="beemun-footer-grid">
           {footerGroups.map((group) => (
             <div key={group.title}>
               <h3>{group.title}</h3>
               <ul>
-                {group.links.map((link) => <li key={link}><a href="#">{link}</a></li>)}
+                {group.links.map((link) => (
+                  <li key={link}>
+                    <a href="#">{link}</a>
+                  </li>
+                ))}
               </ul>
             </div>
           ))}
         </div>
       </div>
       <div className="beemun-footer-bottom">
-        <span>© {new Date().getFullYear()} BEEMUN. All rights reserved.</span>
+        <span>Copyright {new Date().getFullYear()} BEEMUN. All rights reserved.</span>
         <span>Pure for You. Pure for Earth.</span>
       </div>
     </footer>
