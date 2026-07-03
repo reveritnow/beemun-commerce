@@ -30,6 +30,8 @@
     "!apps/backend/.medusa/**"
   ],
   "overrides": {
-    "ajv": "^8.0.0"
+    "ajv": "^8.0.0",
+    "@react-aria/focus": "3.22.1",
+    "@react-aria/interactions": "3.28.1"
   }
 }
