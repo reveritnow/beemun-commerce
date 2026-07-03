@@ -18,10 +18,6 @@ type Props = {
   }>
 }
 
-export async function generateStaticParams() {
-  return []
-}
-
 export async function generateMetadata(props: Props): Promise<Metadata> {
   const params = await props.params
   const collection = await getCollectionByHandle(params.handle).catch(() => null)
