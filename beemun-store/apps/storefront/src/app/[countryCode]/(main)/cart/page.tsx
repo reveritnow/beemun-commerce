@@ -2,7 +2,9 @@ import { retrieveCart } from "@lib/data/cart"
 import { retrieveCustomer } from "@lib/data/customer"
 import CartTemplate from "@modules/cart/templates"
 import { Metadata } from "next"
-import { notFound } from "next/navigation"
+
+export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 export const metadata: Metadata = {
   title: "Cart",
@@ -12,10 +14,10 @@ export const metadata: Metadata = {
 export default async function Cart() {
   const cart = await retrieveCart().catch((error) => {
     console.error(error)
-    return notFound()
+    return null
   })
 
-  const customer = await retrieveCustomer()
+  const customer = await retrieveCustomer().catch(() => null)
 
   return <CartTemplate cart={cart} customer={customer} />
 }
