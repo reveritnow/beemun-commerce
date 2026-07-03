@@ -3,62 +3,87 @@ import { NextRequest, NextResponse } from "next/server"
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL
 const PUBLISHABLE_API_KEY = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY
-const DEFAULT_REGION = process.env.NEXT_PUBLIC_DEFAULT_REGION || "dk"
+const DEFAULT_REGION = process.env.NEXT_PUBLIC_DEFAULT_REGION || "gb"
 
 const regionMapCache = {
-  regionMap: new Map<string, HttpTypes.StoreRegion>(),
+  regionMap: new Map<string, HttpTypes.StoreRegion | number>(),
   regionMapUpdated: Date.now(),
 }
+
+const getFallbackRegionMap = () => new Map<string, HttpTypes.StoreRegion | number>([[DEFAULT_REGION, 1]])
 
 async function getRegionMap(cacheId: string) {
   const { regionMap, regionMapUpdated } = regionMapCache
 
   if (!BACKEND_URL) {
-    throw new Error(
-      "Middleware.ts: Error fetching regions. Did you set up regions in your Medusa Admin and define a NEXT_PUBLIC_MEDUSA_BACKEND_URL environment variable."
+    console.warn(
+      "Middleware.ts: NEXT_PUBLIC_MEDUSA_BACKEND_URL is missing. Falling back to default region."
     )
+    return getFallbackRegionMap()
   }
 
   if (
     !regionMap.keys().next().value ||
     regionMapUpdated < Date.now() - 3600 * 1000
   ) {
-    // Fetch regions from Medusa. We can't use the JS client here because middleware is running on Edge and the client needs a Node environment.
-    const response = await fetch(`${BACKEND_URL}/store/regions`, {
-      method: "GET",
-      headers: {
-        "x-publishable-api-key": PUBLISHABLE_API_KEY!,
-      },
-      next: {
-        revalidate: 3600,
-        tags: [`regions-${cacheId}`],
-      },
-      cache: "force-cache",
-    })
+    try {
+      // Fetch regions from Medusa. We can't use the JS client here because middleware is running on Edge and the client needs a Node environment.
+      const headers: HeadersInit = {}
 
-    if (!response.ok) {
-      throw new Error(`Backend returned ${response.status}`)
-    }
+      if (PUBLISHABLE_API_KEY) {
+        headers["x-publishable-api-key"] = PUBLISHABLE_API_KEY
+      }
 
-    const json = await response.json()
-
-    const { regions } = json
-
-    if (!regions?.length) {
-      return new Map<string, HttpTypes.StoreRegion>()
-    }
-
-    // Create a map of country codes to regions.
-    regions.forEach((region: HttpTypes.StoreRegion) => {
-      region.countries?.forEach((c) => {
-        regionMapCache.regionMap.set(c.iso_2 ?? "", region)
+      const response = await fetch(`${BACKEND_URL}/store/regions`, {
+        method: "GET",
+        headers,
+        next: {
+          revalidate: 3600,
+          tags: [`regions-${cacheId}`],
+        },
+        cache: "force-cache",
       })
-    })
 
-    regionMapCache.regionMapUpdated = Date.now()
+      if (!response.ok) {
+        console.warn(
+          `Middleware.ts: Backend returned ${response.status} while fetching regions. Falling back to default region.`
+        )
+        return regionMap.keys().next().value ? regionMap : getFallbackRegionMap()
+      }
+
+      const json = await response.json()
+      const { regions } = json
+
+      if (!regions?.length) {
+        console.warn(
+          "Middleware.ts: Backend returned no regions. Falling back to default region."
+        )
+        return regionMap.keys().next().value ? regionMap : getFallbackRegionMap()
+      }
+
+      // Create a map of country codes to regions.
+      regionMapCache.regionMap.clear()
+      regions.forEach((region: HttpTypes.StoreRegion) => {
+        region.countries?.forEach((c) => {
+          if (c.iso_2) {
+            regionMapCache.regionMap.set(c.iso_2.toLowerCase(), region)
+          }
+        })
+      })
+
+      regionMapCache.regionMapUpdated = Date.now()
+    } catch (error) {
+      console.warn(
+        "Middleware.ts: Error fetching regions. Falling back to default region.",
+        error
+      )
+      return regionMap.keys().next().value ? regionMap : getFallbackRegionMap()
+    }
   }
 
-  return regionMapCache.regionMap
+  return regionMapCache.regionMap.keys().next().value
+    ? regionMapCache.regionMap
+    : getFallbackRegionMap()
 }
 
 /**
@@ -133,7 +158,12 @@ export async function middleware(request: NextRequest) {
   const queryString = request.nextUrl.search || ""
   const redirectUrl = `${request.nextUrl.origin}/${country}${redirectPath}${queryString}`
 
-  return NextResponse.redirect(redirectUrl, 307)
+  const response = NextResponse.redirect(redirectUrl, 307)
+  response.cookies.set("_medusa_cache_id", cacheId, {
+    maxAge: 60 * 60 * 24,
+  })
+
+  return response
 }
 
 export const config = {
