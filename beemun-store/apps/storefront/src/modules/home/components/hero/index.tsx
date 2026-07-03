@@ -1,20 +1,26 @@
+const standards = [
+  ["ZP", "Zero Plastic", "Packaging and shipping reviewed"],
+  ["ZS", "Zero Synthetic", "No hidden synthetic shortcuts"],
+  ["FD", "Full Disclosure", "Ingredients visible before cart"],
+]
+
 const Hero = () => {
   return (
     <section className="beemun-hero">
       <div className="beemun-hero-copy">
-        <p className="beemun-eyebrow">ZPS 100 Marketplace</p>
+        <p className="beemun-eyebrow">Curated ZPS 100 Marketplace</p>
         <h1>Pure for You. Pure for Earth.</h1>
         <p>
-          A curated marketplace for zero-plastic and zero-synthetic products,
-          reviewed for ingredient clarity, packaging transparency, and full
-          disclosure before they go live.
+          BEEMUN brings purity-first makers into one reviewed marketplace,
+          where every product earns visibility through ingredient clarity,
+          packaging transparency, and full disclosure.
         </p>
         <div className="beemun-actions">
           <a href="#featured" className="beemun-btn-primary">
-            Shop ZPS 100 products
+            Shop reviewed products
           </a>
           <a href="#zps" className="beemun-btn-secondary">
-            Learn about ZPS
+            Explore ZPS 100
           </a>
         </div>
         <div className="beemun-hero-proof">
@@ -25,22 +31,23 @@ const Hero = () => {
         </div>
       </div>
       <div className="beemun-hero-visual" aria-label="BEEMUN ZPS 100 trust visual">
-        <div className="beemun-hero-badge">ZPS 100</div>
-        <div className="beemun-seal-grid">
-          <div>
-            <span>ZP</span>
-            <strong>Zero Plastic</strong>
-            <small>Packaging reviewed</small>
+        <div className="beemun-hero-card">
+          <div className="beemun-hero-card-head">
+            <span>BEEMUN Standard</span>
+            <strong>ZPS 100</strong>
           </div>
-          <div>
-            <span>ZS</span>
-            <strong>Zero Synthetic</strong>
-            <small>Ingredients checked</small>
+          <div className="beemun-hero-seal">
+            <span>100</span>
+            <p>Reviewed for purity, disclosure, and maker accountability.</p>
           </div>
-          <div>
-            <span>FD</span>
-            <strong>Full Disclosure</strong>
-            <small>Visible before purchase</small>
+          <div className="beemun-seal-grid">
+            {standards.map(([abbr, title, text]) => (
+              <div key={title}>
+                <span>{abbr}</span>
+                <strong>{title}</strong>
+                <small>{text}</small>
+              </div>
+            ))}
           </div>
         </div>
       </div>
