@@ -13,10 +13,6 @@ type Props = {
   searchParams: Promise<{ v_id?: string }>
 }
 
-export async function generateStaticParams() {
-  return []
-}
-
 function getImagesForVariant(
   product: HttpTypes.StoreProduct,
   selectedVariantId?: string
