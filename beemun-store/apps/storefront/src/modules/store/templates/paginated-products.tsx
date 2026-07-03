@@ -49,20 +49,29 @@ export default async function PaginatedProducts({
     queryParams["order"] = "created_at"
   }
 
-  const region = await getRegion(countryCode)
+  const region = await getRegion(countryCode).catch(() => null)
 
   if (!region) {
     return null
   }
 
-  const {
-    response: { products, count },
-  } = await listProductsWithSort({
+  const productResult = await listProductsWithSort({
     page,
     queryParams,
     sortBy,
     countryCode,
+  }).catch((error) => {
+    console.error("Unable to load products", error)
+    return null
   })
+
+  if (!productResult) {
+    return null
+  }
+
+  const {
+    response: { products, count },
+  } = productResult
 
   const totalPages = Math.ceil(count / PRODUCT_LIMIT)
 
