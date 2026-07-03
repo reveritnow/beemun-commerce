@@ -24,6 +24,10 @@ export const listCategories = async (query?: Record<string, unknown>) => {
       }
     )
     .then(({ product_categories }) => product_categories)
+    .catch((error) => {
+      console.warn("Unable to load Medusa categories. Rendering empty BEEMUN category state.", error)
+      return []
+    })
 }
 
 export const getCategoryByHandle = async (categoryHandle: string[]) => {
@@ -45,5 +49,9 @@ export const getCategoryByHandle = async (categoryHandle: string[]) => {
         cache: "force-cache",
       }
     )
-    .then(({ product_categories }) => product_categories[0])
+    .then(({ product_categories }) => product_categories[0] || null)
+    .catch((error) => {
+      console.warn("Unable to load Medusa category. Rendering BEEMUN fallback state.", error)
+      return null
+    })
 }
