@@ -1,0 +1,376 @@
+.productTheme {
+  background: linear-gradient(180deg, #fffaf0 0%, #f7efdf 42%, #fffaf0 100%);
+  padding-bottom: 88px;
+}
+
+.productTheme :global(.beemun-product-kicker) {
+  align-items: center;
+  color: #6f7f58;
+  display: flex;
+  font-size: 12px;
+  font-weight: 950;
+  gap: 14px;
+  justify-content: space-between;
+  letter-spacing: .18em;
+  margin: 0 auto;
+  max-width: 1180px;
+  padding: 34px 24px 0;
+  text-transform: uppercase;
+}
+
+.productTheme :global(.beemun-product-kicker span:last-child) {
+  background: #17281d;
+  border-radius: 999px;
+  color: #fffaf0;
+  padding: 10px 14px;
+}
+
+.productTheme :global(.beemun-product-hero) {
+  gap: 42px;
+  grid-template-columns: minmax(0, 1.04fr) minmax(360px, .82fr);
+  padding: 36px 24px 70px;
+}
+
+.productTheme :global(.beemun-product-gallery),
+.productTheme :global(.beemun-product-buybox) {
+  background: rgba(255, 253, 246, .9);
+  border: 1px solid rgba(92, 75, 45, .18);
+  border-radius: 30px;
+  box-shadow: 0 26px 70px rgba(49, 69, 43, .1);
+  padding: 18px;
+}
+
+.productTheme :global(.beemun-product-gallery) {
+  overflow: hidden;
+}
+
+.productTheme :global(.beemun-gallery-stack) {
+  display: grid;
+  gap: 16px;
+}
+
+.productTheme :global(.beemun-gallery-image) {
+  aspect-ratio: 29 / 34;
+  background: linear-gradient(135deg, #f8efda, #dfe8c9);
+  border: 1px solid rgba(92, 75, 45, .13);
+  border-radius: 24px;
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+}
+
+.productTheme :global(.beemun-gallery-image img) {
+  border-radius: 24px;
+}
+
+.productTheme :global(.beemun-gallery-empty) {
+  align-items: end;
+  aspect-ratio: 29 / 34;
+  background: linear-gradient(145deg, #d9c28d, #f8efda 50%, #94ab78);
+  border-radius: 24px;
+  display: grid;
+  min-height: 520px;
+  padding: 28px;
+}
+
+.productTheme :global(.beemun-gallery-empty > div) {
+  background: rgba(255, 253, 246, .9);
+  border: 1px solid rgba(255, 250, 240, .76);
+  border-radius: 22px;
+  box-shadow: 0 18px 44px rgba(23, 40, 29, .12);
+  padding: 24px;
+}
+
+.productTheme :global(.beemun-gallery-empty span) {
+  color: #6f7f58;
+  font-size: 11px;
+  font-weight: 950;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+}
+
+.productTheme :global(.beemun-gallery-empty strong) {
+  color: #17281d;
+  display: block;
+  font-size: 30px;
+  font-weight: 950;
+  line-height: 1.05;
+  margin: 10px 0;
+}
+
+.productTheme :global(.beemun-gallery-empty p) {
+  color: #62715b;
+  line-height: 1.62;
+}
+
+.productTheme :global(.beemun-product-buybox) {
+  padding: 30px;
+  top: 96px;
+}
+
+.productTheme :global(.beemun-product-buybox-top) {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.productTheme :global(.beemun-product-buybox-top .beemun-eyebrow) {
+  margin-bottom: 0;
+}
+
+.productTheme :global(.beemun-product-buybox-top span) {
+  background: #e7efd9;
+  border: 1px solid rgba(49, 69, 43, .14);
+  border-radius: 999px;
+  color: #31452b;
+  font-size: 11px;
+  font-weight: 950;
+  padding: 9px 12px;
+  text-transform: uppercase;
+}
+
+.productTheme :global(.beemun-product-buybox h1) {
+  font-size: clamp(36px, 4.8vw, 60px);
+  line-height: .98;
+  margin: 24px 0 12px;
+}
+
+.productTheme :global(.beemun-product-maker) {
+  color: #6f7f58;
+  font-size: 15px;
+  font-weight: 950;
+  margin-bottom: 16px;
+}
+
+.productTheme :global(.beemun-product-summary) {
+  color: #4f614e;
+  font-size: 17px;
+  line-height: 1.72;
+  margin-bottom: 20px;
+}
+
+.productTheme :global(.beemun-product-trust-row) {
+  gap: 9px;
+  margin-bottom: 22px;
+}
+
+.productTheme :global(.beemun-product-trust-row span) {
+  background: #fffaf0;
+  font-size: 11px;
+  min-height: 32px;
+  padding: 7px 10px;
+}
+
+.productTheme :global(.beemun-buybox-divider) {
+  background: rgba(49, 69, 43, .12);
+  height: 1px;
+  margin: 8px 0 20px;
+}
+
+.productTheme :global(.beemun-product-buybox [data-testid="add-product-button"]) {
+  height: 52px !important;
+  margin-top: 10px;
+}
+
+.productTheme :global(.beemun-buybox-note) {
+  background: #f7efdf;
+  border: 1px solid rgba(92, 75, 45, .14);
+  border-radius: 20px;
+  margin-top: 24px;
+  padding: 18px;
+}
+
+.productTheme :global(.beemun-buybox-note strong) {
+  color: #17281d;
+  display: block;
+  font-size: 15px;
+  font-weight: 950;
+  margin-bottom: 6px;
+}
+
+.productTheme :global(.beemun-buybox-note p) {
+  color: #62715b;
+  line-height: 1.6;
+}
+
+.productTheme :global(.beemun-product-section) {
+  padding: 48px 24px;
+}
+
+.productTheme :global(.beemun-product-section-head) {
+  margin-bottom: 30px;
+  max-width: 760px;
+}
+
+.productTheme :global(.beemun-product-section-head h2) {
+  font-size: clamp(32px, 3.8vw, 54px);
+  line-height: 1;
+  margin-bottom: 12px;
+}
+
+.productTheme :global(.beemun-product-section-head p:not(.beemun-eyebrow)) {
+  color: #62715b;
+  font-size: 17px;
+  line-height: 1.75;
+}
+
+.productTheme :global(.beemun-product-trust-panel) {
+  padding-top: 22px;
+}
+
+.productTheme :global(.beemun-product-trust-card) {
+  min-height: 230px;
+}
+
+.productTheme :global(.beemun-product-trust-card .beemun-seal-icon) {
+  margin-bottom: 18px;
+}
+
+.productTheme :global(.beemun-product-story-card) {
+  background: #fffdf6;
+  border: 1px solid rgba(92, 75, 45, .18);
+  border-radius: 28px;
+  box-shadow: 0 20px 58px rgba(49, 69, 43, .085);
+  padding: 34px;
+}
+
+.productTheme :global(.beemun-product-story-card.dark) {
+  background: #17281d;
+  border-color: rgba(255, 250, 240, .16);
+  color: #fffaf0;
+}
+
+.productTheme :global(.beemun-product-story-card h2) {
+  font-size: clamp(28px, 3.2vw, 44px);
+  line-height: 1.02;
+  margin-bottom: 14px;
+}
+
+.productTheme :global(.beemun-product-story-card p) {
+  color: #62715b;
+  font-size: 16px;
+  line-height: 1.76;
+}
+
+.productTheme :global(.beemun-product-story-card.dark p) {
+  color: #e5dcc8;
+}
+
+.productTheme :global(.beemun-product-disclosure .beemun-card) {
+  min-height: 280px;
+}
+
+.productTheme :global(.beemun-product-not-inside ul) {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  margin: 18px 0 0;
+  padding: 0;
+}
+
+.productTheme :global(.beemun-product-not-inside li) {
+  align-items: center;
+  color: #31452b;
+  display: flex;
+  font-weight: 850;
+  gap: 10px;
+}
+
+.productTheme :global(.beemun-product-not-inside li:before) {
+  background: #31452b;
+  border-radius: 999px;
+  content: "";
+  height: 9px;
+  width: 9px;
+}
+
+.productTheme :global(.beemun-product-details) {
+  background: linear-gradient(180deg, #f7efdf, #f3ead8);
+  border-bottom: 1px solid rgba(92, 75, 45, .12);
+  border-top: 1px solid rgba(92, 75, 45, .12);
+}
+
+.productTheme :global(.beemun-product-faq .beemun-faq-list) {
+  border-radius: 26px;
+}
+
+.productTheme :global(.beemun-product-page [data-testid="related-products-container"] .product-page-constraint) {
+  max-width: none;
+}
+
+.productTheme :global(.beemun-product-page [data-testid="related-products-container"] .flex.flex-col.items-center) {
+  align-items: flex-start;
+  margin-bottom: 26px;
+  text-align: left;
+}
+
+.productTheme :global(.beemun-product-page [data-testid="related-products-container"] .flex.flex-col.items-center span),
+.productTheme :global(.beemun-product-page [data-testid="related-products-container"] .flex.flex-col.items-center p) {
+  display: none;
+}
+
+.productTheme :global(.beemun-product-page [data-testid="related-products-container"] ul) {
+  gap: 22px;
+}
+
+.productTheme :global(.beemun-product-page [data-testid="related-products-container"] li) {
+  background: #fffdf6;
+  border: 1px solid rgba(92, 75, 45, .18);
+  border-radius: 24px;
+  box-shadow: 0 16px 42px rgba(49, 69, 43, .07);
+  overflow: hidden;
+  padding: 14px;
+  transition: box-shadow 180ms ease, transform 180ms ease;
+}
+
+.productTheme :global(.beemun-product-page [data-testid="related-products-container"] li:hover) {
+  box-shadow: 0 26px 62px rgba(49, 69, 43, .12);
+  transform: translateY(-4px);
+}
+
+@media (max-width: 1000px) {
+  .productTheme :global(.beemun-product-kicker) {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 24px 18px 0;
+  }
+
+  .productTheme :global(.beemun-product-hero),
+  .productTheme :global(.beemun-product-split) {
+    grid-template-columns: 1fr;
+  }
+
+  .productTheme :global(.beemun-product-hero) {
+    gap: 24px;
+    padding: 28px 18px 42px;
+  }
+
+  .productTheme :global(.beemun-gallery-empty) {
+    min-height: 360px;
+  }
+
+  .productTheme :global(.beemun-product-section),
+  .productTheme :global(.beemun-product-details) {
+    padding: 42px 18px;
+  }
+
+  .productTheme :global(.beemun-product-story-card) {
+    padding: 24px;
+  }
+}
+
+@media (max-width: 640px) {
+  .productTheme :global(.beemun-product-buybox-top) {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .productTheme :global(.beemun-product-buybox) {
+    padding: 22px;
+  }
+
+  .productTheme :global(.beemun-product-buybox h1) {
+    font-size: 36px;
+  }
+}
