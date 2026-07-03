@@ -10,9 +10,9 @@ import SideMenu from "@modules/layout/components/side-menu"
 
 export default async function Nav() {
   const [regions, locales, currentLocale] = await Promise.all([
-    listRegions().then((regions: StoreRegion[]) => regions),
-    listLocales(),
-    getLocale(),
+    listRegions().then((regions: StoreRegion[]) => regions).catch(() => []),
+    listLocales().catch(() => null),
+    getLocale().catch(() => null),
   ])
 
   return (
