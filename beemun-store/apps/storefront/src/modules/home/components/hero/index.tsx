@@ -1,7 +1,7 @@
 const standards = [
-  ["ZP", "Zero Plastic", "Packaging and shipping reviewed"],
-  ["ZS", "Zero Synthetic", "No hidden synthetic shortcuts"],
-  ["FD", "Full Disclosure", "Ingredients visible before cart"],
+  ["ZP", "Zero Plastic", "Packaging reviewed"],
+  ["ZS", "Zero Synthetic", "Ingredient checked"],
+  ["FD", "Full Disclosure", "Visible before cart"],
 ]
 
 const Hero = () => {
@@ -33,12 +33,16 @@ const Hero = () => {
       <div className="beemun-hero-visual" aria-label="BEEMUN ZPS 100 trust visual">
         <div className="beemun-hero-card">
           <div className="beemun-hero-card-head">
-            <span>BEEMUN Standard</span>
-            <strong>ZPS 100</strong>
+            <span>BEEMUN Trust Card</span>
+            <strong>Reviewed</strong>
           </div>
           <div className="beemun-hero-seal">
-            <span>100</span>
-            <p>Reviewed for purity, disclosure, and maker accountability.</p>
+            <span>ZPS 100</span>
+            <p>Pure for You. Pure for Earth.</p>
+          </div>
+          <div className="beemun-hero-card-note">
+            <strong>Every approved product must make the important details visible.</strong>
+            <p>Ingredients, packaging, maker context, and claim language are reviewed before a product earns its place on BEEMUN.</p>
           </div>
           <div className="beemun-seal-grid">
             {standards.map(([abbr, title, text]) => (
