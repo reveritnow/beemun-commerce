@@ -18,6 +18,10 @@ export const retrieveCollection = async (id: string) => {
       }
     )
     .then(({ collection }) => collection)
+    .catch((error) => {
+      console.warn("Unable to retrieve Medusa collection. Rendering BEEMUN fallback state.", error)
+      return null
+    })
 }
 
 export const listCollections = async (
@@ -40,6 +44,10 @@ export const listCollections = async (
       }
     )
     .then(({ collections }) => ({ collections, count: collections.length }))
+    .catch((error) => {
+      console.warn("Unable to load Medusa collections. Rendering empty BEEMUN collection state.", error)
+      return { collections: [], count: 0 }
+    })
 }
 
 export const getCollectionByHandle = async (
@@ -56,4 +64,8 @@ export const getCollectionByHandle = async (
       cache: "force-cache",
     })
     .then(({ collections }) => collections[0] || null)
+    .catch((error) => {
+      console.warn("Unable to load Medusa collection. Rendering BEEMUN fallback state.", error)
+      return null
+    })
 }
