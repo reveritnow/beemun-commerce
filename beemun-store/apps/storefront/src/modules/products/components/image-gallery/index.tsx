@@ -7,14 +7,26 @@ type ImageGalleryProps = {
 }
 
 const ImageGallery = ({ images }: ImageGalleryProps) => {
+  if (!images?.length) {
+    return (
+      <div className="beemun-gallery-empty">
+        <div>
+          <span>ZPS 100</span>
+          <strong>BEEMUN product imagery</strong>
+          <p>Product images will appear here once the maker gallery is connected.</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="flex items-start relative">
-      <div className="flex flex-col flex-1 small:mx-16 gap-y-4">
+    <div className="beemun-gallery-frame">
+      <div className="beemun-gallery-stack">
         {images.map((image, index) => {
           return (
             <Container
               key={image.id}
-              className="relative aspect-[29/34] w-full overflow-hidden bg-ui-bg-subtle"
+              className="beemun-gallery-image"
               id={image.id}
             >
               {!!image.url && (
