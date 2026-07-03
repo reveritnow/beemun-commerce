@@ -7,6 +7,12 @@ import { SortOptions } from "@modules/store/components/refinement-list/sort-prod
 import { getAuthHeaders, getCacheOptions } from "./cookies"
 import { getRegion, retrieveRegion } from "./regions"
 
+const emptyProductResponse = (queryParams?: HttpTypes.FindParams & HttpTypes.StoreProductListParams) => ({
+  response: { products: [] as HttpTypes.StoreProduct[], count: 0 },
+  nextPage: null,
+  queryParams,
+})
+
 export const listProducts = async ({
   pageParam = 1,
   queryParams,
@@ -23,7 +29,7 @@ export const listProducts = async ({
   queryParams?: HttpTypes.FindParams & HttpTypes.StoreProductListParams
 }> => {
   if (!countryCode && !regionId) {
-    throw new Error("Country code or region ID is required")
+    return emptyProductResponse(queryParams)
   }
 
   const limit = queryParams?.limit || 12
@@ -33,16 +39,13 @@ export const listProducts = async ({
   let region: HttpTypes.StoreRegion | undefined | null
 
   if (countryCode) {
-    region = await getRegion(countryCode)
+    region = await getRegion(countryCode).catch(() => null)
   } else {
-    region = await retrieveRegion(regionId!)
+    region = await retrieveRegion(regionId!).catch(() => null)
   }
 
   if (!region) {
-    return {
-      response: { products: [], count: 0 },
-      nextPage: null,
-    }
+    return emptyProductResponse(queryParams)
   }
 
   const headers = {
@@ -82,6 +85,10 @@ export const listProducts = async ({
         nextPage: nextPage,
         queryParams,
       }
+    })
+    .catch((error) => {
+      console.warn("Unable to load Medusa products. Rendering empty BEEMUN product state.", error)
+      return emptyProductResponse(queryParams)
     })
 }
 
