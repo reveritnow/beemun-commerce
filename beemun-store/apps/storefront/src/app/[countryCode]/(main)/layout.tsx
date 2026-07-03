@@ -9,19 +9,21 @@ import Footer from "@modules/layout/templates/footer"
 import Nav from "@modules/layout/templates/nav"
 import FreeShippingPriceNudge from "@modules/shipping/components/free-shipping-price-nudge"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+
 export const metadata: Metadata = {
   metadataBase: new URL(getBaseURL()),
 }
 
 export default async function PageLayout(props: { children: React.ReactNode }) {
-  const customer = await retrieveCustomer()
-  const cart = await retrieveCart()
+  const customer = await retrieveCustomer().catch(() => null)
+  const cart = await retrieveCart().catch(() => null)
   let shippingOptions: StoreCartShippingOption[] = []
 
   if (cart) {
-    const { shipping_options } = await listCartOptions()
-
-    shippingOptions = shipping_options
+    const response = await listCartOptions().catch(() => null)
+    shippingOptions = response?.shipping_options ?? []
   }
 
   return (
@@ -31,7 +33,7 @@ export default async function PageLayout(props: { children: React.ReactNode }) {
         <CartMismatchBanner customer={customer} cart={cart} />
       )}
 
-      {cart && (
+      {cart && shippingOptions.length > 0 && (
         <FreeShippingPriceNudge
           variant="popup"
           cart={cart}
