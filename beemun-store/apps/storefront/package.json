@@ -15,7 +15,7 @@
     "analyze": "ANALYZE=true next build"
   },
   "dependencies": {
-    "@headlessui/react": "^2.2.0",
+    "@headlessui/react": "2.2.0",
     "@medusajs/icons": "2.15.5",
     "@medusajs/js-sdk": "2.15.5",
     "@medusajs/ui-preset": "2.15.5",
@@ -28,6 +28,7 @@
     "pg": "^8.11.3",
     "qs": "^6.12.1",
     "react": "19.0.5",
+    "react-aria": "3.48.0",
     "react-country-flag": "^3.1.0",
     "react-dom": "19.0.5",
     "server-only": "^0.0.1",
