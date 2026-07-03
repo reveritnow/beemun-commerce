@@ -8,6 +8,7 @@ import { SortOptions } from "@modules/store/components/refinement-list/sort-prod
 import PaginatedProducts from "@modules/store/templates/paginated-products"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { HttpTypes } from "@medusajs/types"
+import styles from "@modules/store/templates/listing-page.module.css"
 
 export default function CategoryTemplate({
   category,
@@ -37,30 +38,37 @@ export default function CategoryTemplate({
   getParents(category)
 
   return (
-    <div className="beemun-listing-page content-container" data-testid="category-container">
+    <div className={`beemun-listing-page ${styles.listingTheme}`} data-testid="category-container">
+      <div className="beemun-listing-inner">
       <div className="beemun-listing-hero">
-        <p className="beemun-eyebrow">BEEMUN category</p>
-        <div className="flex flex-row flex-wrap text-2xl-semi gap-4">
-          {parents &&
-            parents.map((parent) => (
-              <span key={parent.id} className="text-ui-fg-subtle">
-                <LocalizedClientLink
-                  className="mr-4 hover:text-black"
-                  href={`/categories/${parent.handle}`}
-                  data-testid="sort-by-link"
-                >
-                  {parent.name}
-                </LocalizedClientLink>
-                /
-              </span>
-            ))}
-          <h1 data-testid="category-page-title">{category.name}</h1>
-        </div>
-        {category.description && (
-          <div className="mt-4 text-base-regular">
-            <p>{category.description}</p>
+        <div>
+          <p className="beemun-eyebrow">BEEMUN category</p>
+          <div className="beemun-category-breadcrumbs">
+            {parents &&
+              parents.map((parent) => (
+                <span key={parent.id}>
+                  <LocalizedClientLink
+                    href={`/categories/${parent.handle}`}
+                    data-testid="sort-by-link"
+                  >
+                    {parent.name}
+                  </LocalizedClientLink>
+                  /
+                </span>
+              ))}
           </div>
-        )}
+          <h1 data-testid="category-page-title">{category.name}</h1>
+          <p>{category.description || "Curated BEEMUN products reviewed through ingredients, packaging, and maker accountability."}</p>
+          <div className="beemun-listing-hero-meta">
+            <span>{category.products?.length ?? 0} products indexed</span>
+            <span>Category guidance</span>
+            <span>ZPS trust markers</span>
+          </div>
+        </div>
+        <div className="beemun-listing-hero-panel">
+          <strong>{category.category_children?.length || "ZPS"}</strong>
+          <span>Browse this category with ingredient, purpose, packaging, and disclosure cues in mind.</span>
+        </div>
       </div>
       <div className="beemun-listing-layout">
         <RefinementList sortBy={sort} data-testid="sort-by-container" />
@@ -93,6 +101,12 @@ export default function CategoryTemplate({
             />
           </Suspense>
         </div>
+      </div>
+      <section className="beemun-listing-bottom" aria-label="Category recommendations">
+        <article><h3>Buying tips</h3><p>Compare ingredient clarity, packaging claims, and maker context before sorting by price.</p></article>
+        <article><h3>Related collections</h3><p>Look for founder favorites, newly reviewed products, and routine-based edits.</p></article>
+        <article><h3>Continue exploring</h3><p>Move across categories when a purpose matters more than a product type.</p></article>
+      </section>
       </div>
     </div>
   )
