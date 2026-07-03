@@ -4,7 +4,7 @@ This backend is ready for Render, Railway, Koyeb, or any Node host with Postgres
 
 ## Required backend environment variables
 
-- `DATABASE_URL`: managed Postgres connection string.
+- `DATABASE_URL`: managed Postgres connection string. Use your Neon connection string here.
 - `STORE_CORS`: comma-separated storefront origins, including the Vercel production domain.
 - `ADMIN_CORS`: comma-separated admin/backend origins.
 - `AUTH_CORS`: comma-separated auth/backend origins.
@@ -21,7 +21,14 @@ The repository includes a root `render.yaml` blueprint. Create the blueprint, se
 
 ## Railway
 
-Create a Railway service from `beemun-store/apps/backend`, add Postgres, and use the included `railway.json`. Set the required environment variables from `.env.template`.
+Create the Railway service from this GitHub repository and set the service root directory to `beemun-store`. Railway will then read `beemun-store/railway.json` and run:
+
+```bash
+npm ci && npm run build --workspace=@dtc/backend
+npm run start --workspace=@dtc/backend
+```
+
+Keep Neon connected by setting `DATABASE_URL` in Railway Variables. Do not point Railway at `beemun-store/apps/backend`; the backend is deployed from the monorepo root so npm workspaces resolve correctly.
 
 ## One-time database setup
 
