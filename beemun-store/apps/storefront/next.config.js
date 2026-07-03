@@ -1,4 +1,5 @@
 const checkEnvVariables = require("./check-env-variables")
+const path = require("path")
 
 checkEnvVariables()
 
@@ -23,6 +24,24 @@ const nextConfig = {
   },
   typescript: {
     ignoreBuildErrors: true,
+  },
+  experimental: {
+    optimizePackageImports: [],
+  },
+  webpack: (config) => {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      "@react-aria/focus": path.join(
+        path.dirname(require.resolve("@react-aria/focus/package.json")),
+        "dist/main.js"
+      ),
+      "@react-aria/interactions": path.join(
+        path.dirname(require.resolve("@react-aria/interactions/package.json")),
+        "dist/main.js"
+      ),
+    }
+
+    return config
   },
   images: {
     unoptimized: true,
