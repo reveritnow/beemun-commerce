@@ -74,9 +74,28 @@ export default async function PaginatedProducts({
   } = productResult
 
   const totalPages = Math.ceil(count / PRODUCT_LIMIT)
+  const sortLabel =
+    sortBy === "price_asc"
+      ? "Price: Low to High"
+      : sortBy === "price_desc"
+      ? "Price: High to Low"
+      : "Latest Arrivals"
 
   return (
     <>
+      <div className="beemun-toolbar">
+        <div>
+          <h2>{count} reviewed products</h2>
+          <p>Sorted by {sortLabel}. Pricing and availability are pulled from Medusa.</p>
+        </div>
+        <div className="beemun-toolbar-actions">
+          <span>Filter</span>
+          <span>{sortLabel}</span>
+          <span>Grid</span>
+          <span>Editorial</span>
+          <span className="beemun-active-filter">ZPS 100</span>
+        </div>
+      </div>
       <ul
         className="grid grid-cols-2 w-full small:grid-cols-3 medium:grid-cols-4 gap-x-6 gap-y-8"
         data-testid="products-list"
