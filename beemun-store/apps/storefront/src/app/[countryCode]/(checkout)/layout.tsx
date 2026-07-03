@@ -1,6 +1,9 @@
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import ChevronDown from "@modules/common/icons/chevron-down"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+
 export default function CheckoutLayout({
   children,
 }: {
