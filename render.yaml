@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: beemun-medusa-backend
+    env: node
+    plan: starter
+    rootDir: beemun-store
+    buildCommand: npm ci && npm run build --workspace=@dtc/backend
+    startCommand: npm run start --workspace=@dtc/backend
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: beemun-medusa-db
+          property: connectionString
+      - key: STORE_CORS
+        sync: false
+      - key: ADMIN_CORS
+        sync: false
+      - key: AUTH_CORS
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: COOKIE_SECRET
+        generateValue: true
+
+databases:
+  - name: beemun-medusa-db
+    plan: starter
