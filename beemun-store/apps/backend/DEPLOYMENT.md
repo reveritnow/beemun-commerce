@@ -21,14 +21,23 @@ The repository includes a root `render.yaml` blueprint. Create the blueprint, se
 
 ## Railway
 
-Create the Railway service from this GitHub repository and set the service root directory to `beemun-store`. Railway will then read `beemun-store/railway.json` and run:
+Railway deployment is Dockerfile-based and does not rely on Nixpacks or Node auto-detection.
+
+The repository includes:
+
+- `/railway.json` for Railway services rooted at the repository root.
+- `/Dockerfile` for repository-root Docker builds.
+- `/beemun-store/railway.json` for Railway services rooted at `beemun-store`.
+- `/beemun-store/Dockerfile` for `beemun-store` Docker builds.
+
+Both Dockerfiles use Node 22, install the monorepo workspace dependencies, build only the backend workspace, and start only the Medusa backend:
 
 ```bash
-npm ci && npm run build --workspace=@dtc/backend
+npm run build --workspace=@dtc/backend
 npm run start --workspace=@dtc/backend
 ```
 
-Keep Neon connected by setting `DATABASE_URL` in Railway Variables. Do not point Railway at `beemun-store/apps/backend`; the backend is deployed from the monorepo root so npm workspaces resolve correctly.
+Keep Neon connected by setting `DATABASE_URL` in Railway Variables. Do not set custom Nixpacks build/start commands; Railway should use the Dockerfile builder from `railway.json`.
 
 ## One-time database setup
 
