@@ -6,18 +6,21 @@ import CheckoutSummary from "@modules/checkout/templates/checkout-summary"
 import { Metadata } from "next"
 import { notFound } from "next/navigation"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+
 export const metadata: Metadata = {
   title: "Checkout",
 }
 
 export default async function Checkout() {
-  const cart = await retrieveCart()
+  const cart = await retrieveCart().catch(() => null)
 
   if (!cart) {
     return notFound()
   }
 
-  const customer = await retrieveCustomer()
+  const customer = await retrieveCustomer().catch(() => null)
 
   return (
     <div className="grid grid-cols-1 small:grid-cols-[1fr_416px] content-container gap-x-40 py-12">
