@@ -13,9 +13,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
-        fromDatabase:
-          name: beemun-medusa-db
-          property: connectionString
+        sync: false
       - key: STORE_CORS
         sync: false
       - key: ADMIN_CORS
@@ -26,7 +24,3 @@ services:
         generateValue: true
       - key: COOKIE_SECRET
         generateValue: true
-
-databases:
-  - name: beemun-medusa-db
-    plan: starter
