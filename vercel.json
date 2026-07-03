@@ -1,6 +1,6 @@
 {
-  "installCommand": "cd beemun-store && npm install",
-  "buildCommand": "cd beemun-store/apps/storefront && npm run build",
-  "devCommand": "cd beemun-store/apps/storefront && npm run dev",
+  "installCommand": "npm install",
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
   "framework": "nextjs"
 }
