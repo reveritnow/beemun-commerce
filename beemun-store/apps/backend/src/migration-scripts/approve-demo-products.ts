@@ -6,13 +6,29 @@ import {
 } from "@medusajs/framework/utils"
 import { BEEMUN_MARKETPLACE_MODULE } from "../modules/marketplace"
 
-const DEMO_PRODUCT_HANDLES = [
+const BEEMUN_DEMO_PRODUCT_HANDLES = [
   "cold-pressed-coconut-oil",
   "unscented-daily-body-bar",
   "herbal-hair-wash-powder",
   "shea-repair-balm",
   "mineral-laundry-sheets",
   "reusable-dish-block",
+]
+
+const BEEMUN_DEMO_PRODUCT_TITLES = [
+  "Cold-Pressed Coconut Oil",
+  "Unscented Daily Body Bar",
+  "Herbal Hair Wash Powder",
+  "Shea Repair Balm",
+  "Mineral Laundry Sheets",
+  "Reusable Dish Block",
+]
+
+const LEGACY_MEDUSA_DEMO_HANDLES = [
+  "t-shirt",
+  "sweatshirt",
+  "sweatpants",
+  "shorts",
 ]
 
 const DEMO_VENDOR = {
@@ -30,6 +46,97 @@ const visibleMetadata = (metadata?: Record<string, unknown> | null) => ({
   beemun_public_visibility_eligible: true,
 })
 
+const hasBeemunSeedMetadata = (product: any) => {
+  const metadata = product.metadata || {}
+
+  return Boolean(
+    metadata.beemun_approval &&
+      metadata.ingredients &&
+      metadata.packaging &&
+      metadata.maker_story
+  )
+}
+
+const uniqueProducts = (products: any[]) => {
+  const seen = new Set<string>()
+
+  return products.filter((product) => {
+    if (!product?.id || seen.has(product.id)) {
+      return false
+    }
+
+    seen.add(product.id)
+    return true
+  })
+}
+
+const selectControlledDemoProducts = async (
+  productService: Record<string, any>,
+  logger: Record<string, any>
+) => {
+  const products = await productService.listProducts(
+    {},
+    {
+      take: 200,
+      select: ["id", "title", "handle", "status", "metadata"],
+    }
+  )
+
+  const beemunHandleProducts = products.filter((product: any) =>
+    BEEMUN_DEMO_PRODUCT_HANDLES.includes(product.handle)
+  )
+  const beemunMetadataProducts = products.filter(hasBeemunSeedMetadata)
+  const beemunTitleProducts = products.filter((product: any) =>
+    BEEMUN_DEMO_PRODUCT_TITLES.includes(product.title)
+  )
+
+  const selectedBeemunProducts = uniqueProducts([
+    ...beemunHandleProducts,
+    ...beemunMetadataProducts,
+    ...beemunTitleProducts,
+  ])
+
+  if (selectedBeemunProducts.length) {
+    const foundHandles = new Set(
+      selectedBeemunProducts.map((product: any) => product.handle)
+    )
+    const missingHandles = BEEMUN_DEMO_PRODUCT_HANDLES.filter(
+      (handle) => !foundHandles.has(handle)
+    )
+
+    if (missingHandles.length) {
+      logger.warn(
+        `Some current BEEMUN demo handles were not found and were skipped: ${missingHandles.join(", ")}`
+      )
+    }
+
+    return selectedBeemunProducts
+  }
+
+  const legacyDemoProducts = products.filter((product: any) =>
+    LEGACY_MEDUSA_DEMO_HANDLES.includes(product.handle)
+  )
+
+  if (legacyDemoProducts.length) {
+    logger.warn(
+      `No BEEMUN demo handles were found. Falling back to known legacy Medusa seed handles only: ${legacyDemoProducts
+        .map((product: any) => product.handle)
+        .join(", ")}`
+    )
+
+    return legacyDemoProducts
+  }
+
+  logger.warn(
+    `No controlled demo products found. Available product handles: ${products
+      .map((product: any) => product.handle)
+      .filter(Boolean)
+      .join(", ")}`
+  )
+
+  return []
+}
+
 export default async function approve_demo_products({
   container,
 }: {
@@ -46,6 +153,13 @@ export default async function approve_demo_products({
 
   logger.info("Approving controlled BEEMUN demo products...")
 
+  const products = await selectControlledDemoProducts(productService, logger)
+
+  if (!products.length) {
+    logger.warn("Approved 0 products because no controlled demo products matched.")
+    return
+  }
+
   const existingVendors = await marketplace.listVendors({
     handle: DEMO_VENDOR.handle,
   })
@@ -61,21 +175,6 @@ export default async function approve_demo_products({
         seed_scope: "demo_products_only",
       },
     }))
-
-  const products = await productService.listProducts({
-    handle: DEMO_PRODUCT_HANDLES,
-  })
-
-  const foundHandles = new Set(products.map((product: any) => product.handle))
-  const missingHandles = DEMO_PRODUCT_HANDLES.filter(
-    (handle) => !foundHandles.has(handle)
-  )
-
-  if (missingHandles.length) {
-    logger.warn(
-      `Skipped missing BEEMUN demo products: ${missingHandles.join(", ")}`
-    )
-  }
 
   for (const product of products) {
     const vendorProducts = await marketplace.listVendorProducts({
@@ -186,6 +285,8 @@ export default async function approve_demo_products({
   }
 
   logger.info(
-    `Approved ${products.length} controlled BEEMUN demo products for storefront visibility.`
+    `Approved ${products.length} controlled BEEMUN demo products for storefront visibility: ${products
+      .map((product: any) => product.handle)
+      .join(", ")}`
   )
 }
