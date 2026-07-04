@@ -1,0 +1,42 @@
+.beemun-public-card-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.beemun-public-card {
+  min-height: 250px;
+}
+
+.beemun-public-card h2 {
+  font-size: clamp(24px, 2.4vw, 34px);
+  font-weight: 950;
+  line-height: 1.08;
+  margin-bottom: 14px;
+}
+
+.beemun-public-card p:not(.beemun-eyebrow) {
+  color: #62715b;
+  line-height: 1.74;
+}
+
+.beemun-public-note {
+  background: #17281d;
+  border-radius: 30px;
+  color: #fffaf0;
+  margin-bottom: 48px;
+  padding: 34px;
+}
+
+.beemun-public-note p {
+  color: #e5dcc8;
+  font-size: 17px;
+  line-height: 1.7;
+  margin: 0;
+}
+
+@media (max-width: 1000px) {
+  .beemun-public-card-grid {
+    grid-template-columns: 1fr;
+  }
+}
