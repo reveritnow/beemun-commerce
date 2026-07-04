@@ -26,9 +26,6 @@ const requiredFields = [
   "zpsFit",
 ]
 
-const backendUrl =
-  process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL || "http://localhost:9000"
-
 const slugify = (value: string) => {
   return value
     .toLowerCase()
@@ -91,7 +88,7 @@ export default function MakerApplicationForm() {
     setState("submitting")
 
     try {
-      const response = await fetch(`${backendUrl}/vendor/beemun/onboarding`, {
+      const response = await fetch("/api/beemun/maker-application", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -131,7 +128,11 @@ export default function MakerApplicationForm() {
       })
 
       if (!response.ok) {
-        throw new Error("Application could not be submitted.")
+        const data = await response.json().catch(() => null)
+        throw new Error(
+          data?.message ||
+            "Application could not be submitted. Please try again."
+        )
       }
 
       form.reset()
