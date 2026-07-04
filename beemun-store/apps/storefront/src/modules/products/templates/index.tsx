@@ -1,11 +1,14 @@
 import React, { Suspense } from "react"
 
 import ImageGallery from "@modules/products/components/image-gallery"
+import MoreFromMaker from "@modules/products/components/more-from-maker"
 import ProductActions from "@modules/products/components/product-actions"
 import ProductTabs from "@modules/products/components/product-tabs"
 import RelatedProducts from "@modules/products/components/related-products"
 import SkeletonRelatedProducts from "@modules/skeletons/templates/skeleton-related-products"
+import Link from "next/link"
 import { notFound } from "next/navigation"
+import { PublicMaker } from "@lib/data/makers"
 import { HttpTypes } from "@medusajs/types"
 
 import ProductActionsWrapper from "./product-actions-wrapper"
@@ -16,6 +19,7 @@ type ProductTemplateProps = {
   region: HttpTypes.StoreRegion
   countryCode: string
   images: HttpTypes.StoreProductImage[]
+  maker?: PublicMaker | null
 }
 
 const trustItems = [
@@ -56,13 +60,14 @@ const readMeta = (
   return typeof value === "string" && value.trim() ? value : fallback
 }
 
-const ProductTemplate: React.FC<ProductTemplateProps> = ({ product, region, countryCode, images }) => {
+const ProductTemplate: React.FC<ProductTemplateProps> = ({ product, region, countryCode, images, maker }) => {
   if (!product || !product.id) {
     return notFound()
   }
 
   const metadata = product.metadata as Record<string, unknown> | null | undefined
-  const maker = product.collection?.title || "BEEMUN Approved Maker"
+  const makerName = maker?.name || product.collection?.title || "BEEMUN Approved Maker"
+  const makerHref = maker?.handle ? `/${countryCode}/makers/${maker.handle}` : null
   const description = product.description || "A BEEMUN-reviewed product listed with ingredient clarity, packaging transparency, and maker accountability."
   const ingredients = readMeta(metadata, "ingredients", "Full ingredient disclosure will appear here once BEEMUN product fields are added. Until then, this product page preserves the Medusa product data and shows the disclosure area customers should expect.")
   const packaging = readMeta(metadata, "packaging", "Primary packaging, label, and shipping packaging notes will appear here as maker disclosures are added.")
@@ -75,7 +80,7 @@ const ProductTemplate: React.FC<ProductTemplateProps> = ({ product, region, coun
     <main className={`beemun-product-page ${styles.productTheme}`} data-testid="product-container">
       <section className="beemun-product-kicker">
         <span>Pure for You. Pure for Earth.</span>
-        <span>ZPS 100 marketplace product</span>
+        <Link href={`/${countryCode}/zps-100`}>ZPS 100 marketplace product</Link>
       </section>
 
       <section className="beemun-product-hero">
@@ -84,11 +89,18 @@ const ProductTemplate: React.FC<ProductTemplateProps> = ({ product, region, coun
         </div>
         <aside className="beemun-product-buybox">
           <div className="beemun-product-buybox-top">
-            <p className="beemun-eyebrow">ZPS 100 Product</p>
-            <span>BEEMUN Reviewed</span>
+            <Link className="beemun-product-zps-link" href={`/${countryCode}/zps-100`}>ZPS 100 Product</Link>
+            <Link href={`/${countryCode}/zps-100`}>BEEMUN Reviewed</Link>
           </div>
           <h1>{product.title}</h1>
-          <p className="beemun-product-maker">by {maker}</p>
+          <p className="beemun-product-maker">
+            by{" "}
+            {makerHref ? (
+              <Link href={makerHref}>{makerName}</Link>
+            ) : (
+              <span>{makerName}</span>
+            )}
+          </p>
           <p className="beemun-product-summary">{description}</p>
           <div className="beemun-product-trust-row">
             <span>Zero Plastic</span>
@@ -109,7 +121,7 @@ const ProductTemplate: React.FC<ProductTemplateProps> = ({ product, region, coun
 
       <section className="beemun-product-section beemun-product-trust-panel">
         <div className="beemun-product-section-head">
-          <p className="beemun-eyebrow">ZPS 100 trust panel</p>
+          <Link className="beemun-eyebrow beemun-text-link" href={`/${countryCode}/zps-100`}>ZPS 100 trust panel</Link>
           <h2>What customers should know before adding to cart.</h2>
           <p>BEEMUN product pages make the review language visible next to real commerce controls, pricing, variants, and purchase flow.</p>
         </div>
@@ -132,7 +144,7 @@ const ProductTemplate: React.FC<ProductTemplateProps> = ({ product, region, coun
         </article>
         <article className="beemun-product-story-card">
           <p className="beemun-eyebrow">Maker story</p>
-          <h2>{maker}</h2>
+          <h2>{makerName}</h2>
           <p>{makerStory}</p>
         </article>
       </section>
@@ -180,9 +192,13 @@ const ProductTemplate: React.FC<ProductTemplateProps> = ({ product, region, coun
         </div>
       </section>
 
+      <Suspense fallback={null}>
+        <MoreFromMaker maker={maker || null} currentProductId={product.id} countryCode={countryCode} />
+      </Suspense>
+
       <section className="beemun-product-section" data-testid="related-products-container">
         <div className="beemun-product-section-head">
-          <p className="beemun-eyebrow">Continue discovering</p>
+          <p className="beemun-eyebrow">Similar ZPS 100 products</p>
           <h2>Related products.</h2>
         </div>
         <Suspense fallback={<SkeletonRelatedProducts />}>

@@ -1,5 +1,6 @@
 import { Metadata } from "next"
 import { notFound } from "next/navigation"
+import { retrieveMakerForProduct } from "@lib/data/makers"
 import { listProducts } from "@lib/data/products"
 import { getRegion } from "@lib/data/regions"
 import ProductTemplate from "@modules/products/templates"
@@ -82,6 +83,7 @@ export default async function ProductPage(props: Props) {
   }
 
   const images = getImagesForVariant(pricedProduct, selectedVariantId)
+  const maker = await retrieveMakerForProduct(pricedProduct.id).catch(() => null)
 
   return (
     <ProductTemplate
@@ -89,6 +91,7 @@ export default async function ProductPage(props: Props) {
       region={region}
       countryCode={params.countryCode}
       images={images ?? []}
+      maker={maker}
     />
   )
 }

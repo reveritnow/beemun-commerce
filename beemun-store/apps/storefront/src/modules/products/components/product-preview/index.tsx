@@ -7,10 +7,12 @@ import PreviewPrice from "./price"
 export default async function ProductPreview({
   product,
   isFeatured,
+  makerName,
   region: _region,
 }: {
   product: HttpTypes.StoreProduct
   isFeatured?: boolean
+  makerName?: string
   region: HttpTypes.StoreRegion
 }) {
   // const pricedProduct = await listProducts({
@@ -26,7 +28,7 @@ export default async function ProductPreview({
     product,
   })
 
-  const maker = product.collection?.title || "BEEMUN Maker"
+  const maker = makerName || product.collection?.title || "BEEMUN Maker"
 
   return (
     <LocalizedClientLink href={`/products/${product.handle}`} className="group beemun-listing-product-card">
