@@ -1,6 +1,7 @@
 "use server"
 
 import { sdk } from "@lib/config"
+import { filterBeemunApprovedProducts } from "@lib/util/beemun-product-visibility"
 import { HttpTypes } from "@medusajs/types"
 import { getCacheOptions } from "./cookies"
 
@@ -13,11 +14,17 @@ export const retrieveCollection = async (id: string) => {
     .fetch<{ collection: HttpTypes.StoreCollection }>(
       `/store/collections/${id}`,
       {
+        query: {
+          fields: "*products,+products.metadata,+products.status",
+        },
         next,
         cache: "force-cache",
       }
     )
-    .then(({ collection }) => collection)
+    .then(({ collection }) => ({
+      ...collection,
+      products: filterBeemunApprovedProducts(collection.products),
+    }))
     .catch((error) => {
       console.warn("Unable to retrieve Medusa collection. Rendering BEEMUN fallback state.", error)
       return null
@@ -59,11 +66,22 @@ export const getCollectionByHandle = async (
 
   return await sdk.client
     .fetch<HttpTypes.StoreCollectionListResponse>(`/store/collections`, {
-      query: { handle, fields: "*products" },
+      query: { handle, fields: "*products,+products.metadata,+products.status" },
       next,
       cache: "force-cache",
     })
-    .then(({ collections }) => collections[0] || null)
+    .then(({ collections }) => {
+      const collection = collections[0]
+
+      if (!collection) {
+        return null
+      }
+
+      return {
+        ...collection,
+        products: filterBeemunApprovedProducts(collection.products),
+      }
+    })
     .catch((error) => {
       console.warn("Unable to load Medusa collection. Rendering BEEMUN fallback state.", error)
       return null

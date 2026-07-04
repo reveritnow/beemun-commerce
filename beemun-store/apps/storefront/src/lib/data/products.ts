@@ -1,6 +1,10 @@
 "use server"
 
 import { sdk } from "@lib/config"
+import {
+  ensureProductFieldsIncludeBeemunGate,
+  filterBeemunApprovedProducts,
+} from "@lib/util/beemun-product-visibility"
 import { sortProducts } from "@lib/util/sort-products"
 import { HttpTypes } from "@medusajs/types"
 import { SortOptions } from "@modules/store/components/refinement-list/sort-products"
@@ -62,12 +66,11 @@ export const listProducts = async ({
       {
         method: "GET",
         query: {
-          limit,
+          limit: Math.max(Number(limit), 100),
           offset,
           region_id: region?.id,
-          fields:
-            "*variants.calculated_price,+variants.inventory_quantity,*variants.images,+metadata,+tags,",
           ...queryParams,
+          fields: ensureProductFieldsIncludeBeemunGate(queryParams?.fields),
         },
         headers,
         next,
@@ -75,12 +78,16 @@ export const listProducts = async ({
       }
     )
     .then(({ products, count }) => {
-      const nextPage = count > offset + limit ? pageParam + 1 : null
+      const approvedProducts = filterBeemunApprovedProducts(products)
+      const paginatedProducts = approvedProducts.slice(0, Number(limit))
+      const approvedCount = Math.min(count, approvedProducts.length)
+      const nextPage =
+        approvedProducts.length > Number(limit) ? pageParam + 1 : null
 
       return {
         response: {
-          products,
-          count,
+          products: paginatedProducts,
+          count: approvedCount,
         },
         nextPage: nextPage,
         queryParams,
