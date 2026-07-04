@@ -1,0 +1,66 @@
+import { Migration } from "@medusajs/framework/mikro-orm/migrations"
+
+export class Migration20260704090000 extends Migration {
+  async up(): Promise<void> {
+    this.addSql(`create table if not exists "beemun_vendor" ("id" text not null, "name" text not null, "handle" text not null, "email" text not null, "phone" text null, "description" text null, "logo_url" text null, "banner_url" text null, "website_url" text null, "country_code" text null, "status" text check ("status" in ('draft', 'submitted', 'under_review', 'approved', 'suspended', 'rejected', 'archived')) not null default 'draft', "status_reason" text null, "submitted_at" timestamptz null, "reviewed_at" timestamptz null, "approved_at" timestamptz null, "suspended_at" timestamptz null, "rejected_at" timestamptz null, "archived_at" timestamptz null, "zps_profile_score" numeric null, "metadata" jsonb null, "created_at" timestamptz not null default now(), "updated_at" timestamptz not null default now(), "deleted_at" timestamptz null, constraint "beemun_vendor_pkey" primary key ("id"));`)
+    this.addSql(`create unique index if not exists "IDX_beemun_vendor_handle_unique" on "beemun_vendor" ("handle") where deleted_at is null;`)
+    this.addSql(`create index if not exists "IDX_beemun_vendor_email" on "beemun_vendor" ("email") where deleted_at is null;`)
+    this.addSql(`create index if not exists "IDX_beemun_vendor_status" on "beemun_vendor" ("status") where deleted_at is null;`)
+
+    this.addSql(`create table if not exists "beemun_vendor_member" ("id" text not null, "vendor_id" text not null, "email" text not null, "first_name" text null, "last_name" text null, "role" text check ("role" in ('owner', 'admin', 'manager', 'analyst')) not null default 'owner', "status" text check ("status" in ('invited', 'active', 'suspended', 'removed')) not null default 'invited', "external_auth_id" text null, "invited_at" timestamptz null, "accepted_at" timestamptz null, "suspended_at" timestamptz null, "removed_at" timestamptz null, "metadata" jsonb null, "created_at" timestamptz not null default now(), "updated_at" timestamptz not null default now(), "deleted_at" timestamptz null, constraint "beemun_vendor_member_pkey" primary key ("id"));`)
+    this.addSql(`create unique index if not exists "IDX_beemun_vendor_member_vendor_email_unique" on "beemun_vendor_member" ("vendor_id", "email") where deleted_at is null;`)
+    this.addSql(`create index if not exists "IDX_beemun_vendor_member_external_auth" on "beemun_vendor_member" ("external_auth_id") where deleted_at is null;`)
+
+    this.addSql(`create table if not exists "beemun_vendor_invite" ("id" text not null, "vendor_id" text not null, "email" text not null, "role" text check ("role" in ('owner', 'admin', 'manager', 'analyst')) not null default 'manager', "token_hash" text not null, "expires_at" timestamptz not null, "accepted_at" timestamptz null, "revoked_at" timestamptz null, "metadata" jsonb null, "created_at" timestamptz not null default now(), "updated_at" timestamptz not null default now(), "deleted_at" timestamptz null, constraint "beemun_vendor_invite_pkey" primary key ("id"));`)
+    this.addSql(`create unique index if not exists "IDX_beemun_vendor_invite_token_unique" on "beemun_vendor_invite" ("token_hash") where deleted_at is null;`)
+    this.addSql(`create index if not exists "IDX_beemun_vendor_invite_vendor_email" on "beemun_vendor_invite" ("vendor_id", "email") where deleted_at is null;`)
+
+    this.addSql(`create table if not exists "beemun_vendor_document" ("id" text not null, "vendor_id" text not null, "document_type" text not null, "title" text not null, "file_url" text null, "status" text check ("status" in ('draft', 'submitted', 'under_review', 'approved', 'needs_changes', 'rejected', 'expired')) not null default 'draft', "issuer" text null, "issued_at" timestamptz null, "expires_at" timestamptz null, "reviewed_at" timestamptz null, "reviewer_user_id" text null, "review_notes" text null, "metadata" jsonb null, "created_at" timestamptz not null default now(), "updated_at" timestamptz not null default now(), "deleted_at" timestamptz null, constraint "beemun_vendor_document_pkey" primary key ("id"));`)
+    this.addSql(`create index if not exists "IDX_beemun_vendor_document_vendor_status" on "beemun_vendor_document" ("vendor_id", "status") where deleted_at is null;`)
+    this.addSql(`create index if not exists "IDX_beemun_vendor_document_type" on "beemun_vendor_document" ("document_type") where deleted_at is null;`)
+
+    this.addSql(`create table if not exists "beemun_vendor_review_event" ("id" text not null, "vendor_id" text not null, "from_status" text check ("from_status" in ('draft', 'submitted', 'under_review', 'approved', 'suspended', 'rejected', 'archived')) null, "to_status" text check ("to_status" in ('draft', 'submitted', 'under_review', 'approved', 'suspended', 'rejected', 'archived')) not null, "actor_type" text check ("actor_type" in ('admin', 'vendor', 'system', 'ai')) not null default 'admin', "actor_user_id" text null, "reason" text null, "notes" text null, "metadata" jsonb null, "created_at" timestamptz not null default now(), "updated_at" timestamptz not null default now(), "deleted_at" timestamptz null, constraint "beemun_vendor_review_event_pkey" primary key ("id"));`)
+    this.addSql(`create index if not exists "IDX_beemun_vendor_review_event_vendor" on "beemun_vendor_review_event" ("vendor_id") where deleted_at is null;`)
+    this.addSql(`create index if not exists "IDX_beemun_vendor_review_event_to_status" on "beemun_vendor_review_event" ("to_status") where deleted_at is null;`)
+
+    this.addSql(`create table if not exists "beemun_vendor_product" ("id" text not null, "vendor_id" text not null, "product_id" text not null, "relationship_type" text check ("relationship_type" in ('maker', 'brand_owner', 'distributor', 'fulfillment_partner')) not null default 'maker', "is_primary" boolean not null default true, "ownership_started_at" timestamptz null, "ownership_ended_at" timestamptz null, "metadata" jsonb null, "created_at" timestamptz not null default now(), "updated_at" timestamptz not null default now(), "deleted_at" timestamptz null, constraint "beemun_vendor_product_pkey" primary key ("id"));`)
+    this.addSql(`create index if not exists "IDX_beemun_vendor_product_product" on "beemun_vendor_product" ("product_id") where deleted_at is null;`)
+    this.addSql(`create index if not exists "IDX_beemun_vendor_product_vendor" on "beemun_vendor_product" ("vendor_id") where deleted_at is null;`)
+    this.addSql(`create unique index if not exists "IDX_beemun_vendor_product_unique_relationship" on "beemun_vendor_product" ("product_id", "vendor_id", "relationship_type") where deleted_at is null;`)
+
+    this.addSql(`create table if not exists "beemun_product_review" ("id" text not null, "vendor_product_id" text not null, "product_id" text not null, "status" text check ("status" in ('draft', 'submitted', 'automatic_checks', 'pending_zps_review', 'needs_changes', 'approved', 'published', 'hidden', 'rejected', 'archived')) not null default 'draft', "zps_score" numeric null, "ai_risk_score" numeric null, "public_visibility_eligible" boolean not null default false, "submitted_at" timestamptz null, "automatic_checks_started_at" timestamptz null, "automatic_checks_completed_at" timestamptz null, "zps_review_started_at" timestamptz null, "approved_at" timestamptz null, "published_at" timestamptz null, "hidden_at" timestamptz null, "rejected_at" timestamptz null, "archived_at" timestamptz null, "reviewer_user_id" text null, "rejection_reason" text null, "change_request" text null, "metadata" jsonb null, "created_at" timestamptz not null default now(), "updated_at" timestamptz not null default now(), "deleted_at" timestamptz null, constraint "beemun_product_review_pkey" primary key ("id"));`)
+    this.addSql(`create index if not exists "IDX_beemun_product_review_product" on "beemun_product_review" ("product_id") where deleted_at is null;`)
+    this.addSql(`create index if not exists "IDX_beemun_product_review_vendor_product" on "beemun_product_review" ("vendor_product_id") where deleted_at is null;`)
+    this.addSql(`create index if not exists "IDX_beemun_product_review_status" on "beemun_product_review" ("status") where deleted_at is null;`)
+    this.addSql(`create index if not exists "IDX_beemun_product_review_public_gate" on "beemun_product_review" ("product_id", "status", "public_visibility_eligible") where deleted_at is null;`)
+
+    this.addSql(`create table if not exists "beemun_product_review_event" ("id" text not null, "product_review_id" text not null, "from_status" text check ("from_status" in ('draft', 'submitted', 'automatic_checks', 'pending_zps_review', 'needs_changes', 'approved', 'published', 'hidden', 'rejected', 'archived')) null, "to_status" text check ("to_status" in ('draft', 'submitted', 'automatic_checks', 'pending_zps_review', 'needs_changes', 'approved', 'published', 'hidden', 'rejected', 'archived')) not null, "actor_type" text check ("actor_type" in ('admin', 'vendor', 'system', 'ai')) not null default 'admin', "actor_user_id" text null, "reason" text null, "notes" text null, "metadata" jsonb null, "created_at" timestamptz not null default now(), "updated_at" timestamptz not null default now(), "deleted_at" timestamptz null, constraint "beemun_product_review_event_pkey" primary key ("id"));`)
+    this.addSql(`create index if not exists "IDX_beemun_product_review_event_review" on "beemun_product_review_event" ("product_review_id") where deleted_at is null;`)
+    this.addSql(`create index if not exists "IDX_beemun_product_review_event_to_status" on "beemun_product_review_event" ("to_status") where deleted_at is null;`)
+
+    this.addSql(`create table if not exists "beemun_product_quality_signal" ("id" text not null, "product_review_id" text not null, "signal_type" text check ("signal_type" in ('zps_score', 'ai_moderation', 'ingredient_check', 'packaging_check', 'certification_check', 'customer_quality_report', 'manual_review')) not null, "score" numeric null, "outcome" text null, "source" text null, "source_reference" text null, "notes" text null, "metadata" jsonb null, "created_at" timestamptz not null default now(), "updated_at" timestamptz not null default now(), "deleted_at" timestamptz null, constraint "beemun_product_quality_signal_pkey" primary key ("id"));`)
+    this.addSql(`create index if not exists "IDX_beemun_product_quality_signal_review" on "beemun_product_quality_signal" ("product_review_id") where deleted_at is null;`)
+    this.addSql(`create index if not exists "IDX_beemun_product_quality_signal_type" on "beemun_product_quality_signal" ("signal_type") where deleted_at is null;`)
+
+    this.addSql(`alter table if exists "beemun_vendor_member" add constraint "beemun_vendor_member_vendor_id_foreign" foreign key ("vendor_id") references "beemun_vendor" ("id") on update cascade on delete cascade;`)
+    this.addSql(`alter table if exists "beemun_vendor_invite" add constraint "beemun_vendor_invite_vendor_id_foreign" foreign key ("vendor_id") references "beemun_vendor" ("id") on update cascade on delete cascade;`)
+    this.addSql(`alter table if exists "beemun_vendor_document" add constraint "beemun_vendor_document_vendor_id_foreign" foreign key ("vendor_id") references "beemun_vendor" ("id") on update cascade on delete cascade;`)
+    this.addSql(`alter table if exists "beemun_vendor_review_event" add constraint "beemun_vendor_review_event_vendor_id_foreign" foreign key ("vendor_id") references "beemun_vendor" ("id") on update cascade on delete cascade;`)
+    this.addSql(`alter table if exists "beemun_vendor_product" add constraint "beemun_vendor_product_vendor_id_foreign" foreign key ("vendor_id") references "beemun_vendor" ("id") on update cascade on delete cascade;`)
+    this.addSql(`alter table if exists "beemun_product_review" add constraint "beemun_product_review_vendor_product_id_foreign" foreign key ("vendor_product_id") references "beemun_vendor_product" ("id") on update cascade on delete cascade;`)
+    this.addSql(`alter table if exists "beemun_product_review_event" add constraint "beemun_product_review_event_product_review_id_foreign" foreign key ("product_review_id") references "beemun_product_review" ("id") on update cascade on delete cascade;`)
+    this.addSql(`alter table if exists "beemun_product_quality_signal" add constraint "beemun_product_quality_signal_product_review_id_foreign" foreign key ("product_review_id") references "beemun_product_review" ("id") on update cascade on delete cascade;`)
+  }
+
+  async down(): Promise<void> {
+    this.addSql(`drop table if exists "beemun_product_quality_signal" cascade;`)
+    this.addSql(`drop table if exists "beemun_product_review_event" cascade;`)
+    this.addSql(`drop table if exists "beemun_product_review" cascade;`)
+    this.addSql(`drop table if exists "beemun_vendor_product" cascade;`)
+    this.addSql(`drop table if exists "beemun_vendor_review_event" cascade;`)
+    this.addSql(`drop table if exists "beemun_vendor_document" cascade;`)
+    this.addSql(`drop table if exists "beemun_vendor_invite" cascade;`)
+    this.addSql(`drop table if exists "beemun_vendor_member" cascade;`)
+    this.addSql(`drop table if exists "beemun_vendor" cascade;`)
+  }
+}
