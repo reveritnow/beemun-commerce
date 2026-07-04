@@ -1,5 +1,8 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { OnboardingError, createVendorFromOnboarding } from "../helpers"
+import {
+  createVendorFromOnboarding,
+  onboardingErrorFromUnknown,
+} from "../helpers"
 
 export async function POST(req: MedusaRequest, res: MedusaResponse) {
   try {
@@ -8,19 +11,21 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     res.status(201).json(result)
   } catch (error) {
     const logger = req.scope.resolve("logger")
-    const message =
-      error instanceof Error
-        ? error.message
-        : "The maker application could not be submitted."
-    const status = error instanceof OnboardingError ? error.status : 500
+    const publicError = onboardingErrorFromUnknown(error)
+    const technicalMessage =
+      error instanceof Error ? error.stack || error.message : String(error)
 
-    logger.warn(`BEEMUN maker onboarding failed: ${message}`)
+    if (publicError.status >= 500) {
+      logger.error(`BEEMUN maker onboarding failed: ${technicalMessage}`)
+    } else {
+      logger.warn(
+        `BEEMUN maker onboarding rejected (${publicError.code}): ${technicalMessage}`
+      )
+    }
 
-    res.status(status).json({
-      message:
-        status === 500
-          ? "The maker application could not be submitted. Please try again or contact BEEMUN."
-          : message,
+    res.status(publicError.status).json({
+      message: publicError.message,
+      code: publicError.code,
     })
   }
 }
