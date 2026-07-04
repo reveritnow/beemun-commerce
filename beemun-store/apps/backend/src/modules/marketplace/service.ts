@@ -8,6 +8,7 @@ import {
   VendorInvite,
   VendorMember,
   VendorProduct,
+  VendorReviewEvent,
 } from "./models"
 
 class MarketplaceModuleService extends MedusaService({
@@ -19,6 +20,7 @@ class MarketplaceModuleService extends MedusaService({
   VendorInvite,
   VendorMember,
   VendorProduct,
+  VendorReviewEvent,
 }) {}
 
 export default MarketplaceModuleService
