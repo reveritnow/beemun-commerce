@@ -3,19 +3,39 @@ import LocalizedClientLink from "@modules/common/components/localized-client-lin
 const footerGroups = [
   {
     title: "Shop",
-    links: ["Skin & Body", "Hair Care", "Oils & Butters", "Home Products"],
+    links: [
+      ["Store", "/store"],
+      ["Skin & Body", "/categories/skin-body"],
+      ["Hair Care", "/categories/hair-care"],
+      ["Home Products", "/categories/home-essentials"],
+    ],
   },
   {
     title: "The Standard",
-    links: ["ZPS 100", "Ingredient Disclosure", "Packaging Review", "Maker Accountability"],
+    links: [
+      ["ZPS 100", "/zps-100"],
+      ["How it works", "/how-it-works"],
+      ["About BEEMUN", "/about"],
+    ],
   },
   {
     title: "For Makers",
-    links: ["Partner with BEEMUN", "Seller Guidelines", "Product Review", "Maker Application"],
+    links: [
+      ["Become a maker", "/become-a-maker"],
+      ["Contact", "/contact"],
+      ["Product review", "/zps-100"],
+    ],
   },
   {
     title: "Company",
-    links: ["About BEEMUN", "Contact", "Shipping", "Privacy", "Terms"],
+    links: [
+      ["About", "/about"],
+      ["Contact", "/contact"],
+      ["Shipping & returns", "/shipping-returns"],
+      ["Refund policy", "/refund-policy"],
+      ["Privacy", "/privacy-policy"],
+      ["Terms", "/terms"],
+    ],
   },
 ]
 
@@ -54,9 +74,9 @@ export default async function Footer() {
             <div key={group.title}>
               <h3>{group.title}</h3>
               <ul>
-                {group.links.map((link) => (
-                  <li key={link}>
-                    <a href="#">{link}</a>
+                {group.links.map(([label, href]) => (
+                  <li key={href}>
+                    <LocalizedClientLink href={href}>{label}</LocalizedClientLink>
                   </li>
                 ))}
               </ul>
