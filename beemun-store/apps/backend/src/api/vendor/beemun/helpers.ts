@@ -16,11 +16,13 @@ const now = () => new Date()
 
 export class OnboardingError extends Error {
   status: number
+  code: string
 
-  constructor(message: string, status = 400) {
+  constructor(message: string, status = 400, code = "onboarding_error") {
     super(message)
     this.name = "OnboardingError"
     this.status = status
+    this.code = code
   }
 }
 
@@ -126,17 +128,83 @@ const normalizeEmail = (value?: string | null) => {
   return typeof value === "string" ? value.trim().toLowerCase() : ""
 }
 
+const nullableString = (value?: unknown) => {
+  return typeof value === "string" && value.trim() ? value.trim() : null
+}
+
+const metadataObject = (value: unknown) => {
+  if (!value) {
+    return {}
+  }
+
+  if (typeof value !== "object" || Array.isArray(value)) {
+    throw new OnboardingError(
+      "Some maker application details are not in the expected format. Please refresh and try again.",
+      400,
+      "invalid_metadata"
+    )
+  }
+
+  return value as Record<string, unknown>
+}
+
+const normalizeCountryCode = (value?: unknown) => {
+  if (!value) {
+    return null
+  }
+
+  if (typeof value !== "string") {
+    throw new OnboardingError(
+      "Please enter a valid country for your maker application.",
+      400,
+      "invalid_country"
+    )
+  }
+
+  const country = value.trim()
+
+  if (!country) {
+    return null
+  }
+
+  if (/^[a-z]{2}$/i.test(country)) {
+    return country.toLowerCase()
+  }
+
+  if (/^[a-z\s.'-]{3,80}$/i.test(country)) {
+    return null
+  }
+
+  throw new OnboardingError(
+    "Please enter a valid country name or two-letter country code.",
+    400,
+    "invalid_country"
+  )
+}
+
 const validateOnboardingBody = (body: RequestBody) => {
   if (!body.name || typeof body.name !== "string" || !body.name.trim()) {
-    throw new OnboardingError("Maker / business name is required.")
+    throw new OnboardingError(
+      "Maker / business name is required.",
+      400,
+      "missing_name"
+    )
   }
 
   if (!body.email || typeof body.email !== "string" || !body.email.trim()) {
-    throw new OnboardingError("Email is required.")
+    throw new OnboardingError("Email is required.", 400, "missing_email")
   }
 
-  if (!body.email.includes("@")) {
-    throw new OnboardingError("A valid email is required.")
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email.trim())) {
+    throw new OnboardingError("A valid email is required.", 400, "invalid_email")
+  }
+
+  if (body.handle && typeof body.handle !== "string") {
+    throw new OnboardingError(
+      "Maker handle must be text.",
+      400,
+      "invalid_handle"
+    )
   }
 }
 
@@ -158,7 +226,8 @@ const ensurePublicApplicationEmailIsNew = async (
   if (activeApplication) {
     throw new OnboardingError(
       "A maker application with this email already exists. Please contact BEEMUN if you need to update it.",
-      409
+      409,
+      "duplicate_email"
     )
   }
 }
@@ -189,7 +258,90 @@ const resolveUniqueVendorHandle = async (
 
   throw new OnboardingError(
     "A maker with this name already exists. Please adjust the maker name or contact BEEMUN.",
-    409
+    409,
+    "duplicate_handle"
+  )
+}
+
+export const onboardingErrorFromUnknown = (error: unknown) => {
+  if (error instanceof OnboardingError) {
+    return error
+  }
+
+  const message = error instanceof Error ? error.message : String(error || "")
+  const normalized = message.toLowerCase()
+
+  if (
+    normalized.includes("idx_beemun_vendor_handle_unique") ||
+    normalized.includes("beemun_vendor_handle_unique") ||
+    (normalized.includes("duplicate") && normalized.includes("handle"))
+  ) {
+    return new OnboardingError(
+      "A maker with this name already exists. Please adjust the maker name or contact BEEMUN.",
+      409,
+      "duplicate_handle"
+    )
+  }
+
+  if (
+    normalized.includes("idx_beemun_vendor_email") ||
+    (normalized.includes("duplicate") && normalized.includes("email"))
+  ) {
+    return new OnboardingError(
+      "A maker application with this email already exists. Please contact BEEMUN if you need to update it.",
+      409,
+      "duplicate_email"
+    )
+  }
+
+  if (normalized.includes("country") || normalized.includes("country_code")) {
+    return new OnboardingError(
+      "Please enter a valid country name or two-letter country code.",
+      400,
+      "invalid_country"
+    )
+  }
+
+  if (
+    normalized.includes("not-null") ||
+    normalized.includes("null value") ||
+    normalized.includes("violates not-null")
+  ) {
+    return new OnboardingError(
+      "Please complete all required maker application fields.",
+      400,
+      "missing_required_field"
+    )
+  }
+
+  if (
+    normalized.includes("validation") ||
+    normalized.includes("invalid input") ||
+    normalized.includes("check constraint")
+  ) {
+    return new OnboardingError(
+      "Some maker application details are invalid. Please review the form and try again.",
+      400,
+      "database_validation"
+    )
+  }
+
+  if (
+    normalized.includes("beemun_vendor") ||
+    normalized.includes("vendor") ||
+    normalized.includes("marketplace")
+  ) {
+    return new OnboardingError(
+      "BEEMUN could not save this maker application. Please review the maker details and try again.",
+      400,
+      "marketplace_service_error"
+    )
+  }
+
+  return new OnboardingError(
+    "The maker application could not be submitted. Please try again or contact BEEMUN.",
+    500,
+    "unexpected_onboarding_error"
   )
 }
 
@@ -201,21 +353,25 @@ export const createVendorFromOnboarding = async (req: MedusaRequest) => {
   const handle = await resolveUniqueVendorHandle(marketplace, body)
   const shouldSubmit = body.submit === true || body.status === "submitted"
   const timestamp = shouldSubmit ? now() : null
+  const applicationCountry = nullableString(body.country_code)
+  const countryCode = normalizeCountryCode(body.country_code)
+  const metadata = metadataObject(body.metadata)
 
   const vendor = await marketplace.createVendors({
     name: body.name.trim(),
     handle,
     email: normalizeEmail(body.email),
-    phone: body.phone || null,
-    description: body.description || null,
-    logo_url: body.logo_url || null,
-    banner_url: body.banner_url || null,
-    website_url: body.website_url || null,
-    country_code: body.country_code || null,
+    phone: nullableString(body.phone),
+    description: nullableString(body.description),
+    logo_url: nullableString(body.logo_url),
+    banner_url: nullableString(body.banner_url),
+    website_url: nullableString(body.website_url),
+    country_code: countryCode,
     status: shouldSubmit ? "submitted" : "draft",
     submitted_at: timestamp,
     metadata: {
-      ...(body.metadata || {}),
+      ...metadata,
+      application_country: applicationCountry,
       requested_handle: body.handle || null,
     },
   })
@@ -226,13 +382,13 @@ export const createVendorFromOnboarding = async (req: MedusaRequest) => {
     member = await marketplace.createVendorMembers({
       vendor_id: vendor.id,
       email: normalizeEmail(body.owner_email || body.email),
-      first_name: body.owner_first_name || null,
-      last_name: body.owner_last_name || null,
+      first_name: nullableString(body.owner_first_name),
+      last_name: nullableString(body.owner_last_name),
       role: "owner",
       status: "active",
       external_auth_id: actorIdOf(req),
       accepted_at: now(),
-      metadata: body.owner_metadata || null,
+      metadata: body.owner_metadata ? metadataObject(body.owner_metadata) : null,
     })
   }
 
@@ -243,8 +399,8 @@ export const createVendorFromOnboarding = async (req: MedusaRequest) => {
     actor_type: "vendor",
     actor_user_id: actorIdOf(req),
     reason: shouldSubmit ? "Vendor onboarding submitted" : "Vendor draft created",
-    notes: body.notes || null,
-    metadata: body.event_metadata || null,
+    notes: nullableString(body.notes),
+    metadata: body.event_metadata ? metadataObject(body.event_metadata) : null,
   })
 
   return { vendor, member }
