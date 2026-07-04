@@ -14,6 +14,16 @@ type VendorContext = {
 
 const now = () => new Date()
 
+export class OnboardingError extends Error {
+  status: number
+
+  constructor(message: string, status = 400) {
+    super(message)
+    this.name = "OnboardingError"
+    this.status = status
+  }
+}
+
 export const bodyOf = (req: MedusaRequest): RequestBody => {
   return (req.body || {}) as RequestBody
 }
@@ -100,16 +110,102 @@ export const assertVendorCanSubmitProducts = (vendor: Record<string, any>) => {
   }
 }
 
+const slugify = (value: string) => {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+}
+
+const shortSuffix = () => {
+  return Math.random().toString(36).slice(2, 8)
+}
+
+const normalizeEmail = (value?: string | null) => {
+  return typeof value === "string" ? value.trim().toLowerCase() : ""
+}
+
+const validateOnboardingBody = (body: RequestBody) => {
+  if (!body.name || typeof body.name !== "string" || !body.name.trim()) {
+    throw new OnboardingError("Maker / business name is required.")
+  }
+
+  if (!body.email || typeof body.email !== "string" || !body.email.trim()) {
+    throw new OnboardingError("Email is required.")
+  }
+
+  if (!body.email.includes("@")) {
+    throw new OnboardingError("A valid email is required.")
+  }
+}
+
+const ensurePublicApplicationEmailIsNew = async (
+  marketplace: MarketplaceService,
+  body: RequestBody
+) => {
+  const email = normalizeEmail(body.owner_email || body.email)
+
+  if (!email) {
+    return
+  }
+
+  const existingVendors = await marketplace.listVendors({ email })
+  const activeApplication = existingVendors.find((vendor: Record<string, any>) =>
+    ["draft", "submitted", "under_review", "approved"].includes(vendor.status)
+  )
+
+  if (activeApplication) {
+    throw new OnboardingError(
+      "A maker application with this email already exists. Please contact BEEMUN if you need to update it.",
+      409
+    )
+  }
+}
+
+const resolveUniqueVendorHandle = async (
+  marketplace: MarketplaceService,
+  body: RequestBody
+) => {
+  const requestedHandle =
+    typeof body.handle === "string" && body.handle.trim()
+      ? body.handle
+      : body.name
+  const baseHandle = slugify(requestedHandle) || `maker-${shortSuffix()}`
+  const existing = await marketplace.listVendors({ handle: baseHandle })
+
+  if (!existing.length) {
+    return baseHandle
+  }
+
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const candidate = `${baseHandle}-${shortSuffix()}`
+    const matches = await marketplace.listVendors({ handle: candidate })
+
+    if (!matches.length) {
+      return candidate
+    }
+  }
+
+  throw new OnboardingError(
+    "A maker with this name already exists. Please adjust the maker name or contact BEEMUN.",
+    409
+  )
+}
+
 export const createVendorFromOnboarding = async (req: MedusaRequest) => {
   const marketplace = marketplaceServiceOf(req)
   const body = bodyOf(req)
+  validateOnboardingBody(body)
+  await ensurePublicApplicationEmailIsNew(marketplace, body)
+  const handle = await resolveUniqueVendorHandle(marketplace, body)
   const shouldSubmit = body.submit === true || body.status === "submitted"
   const timestamp = shouldSubmit ? now() : null
 
   const vendor = await marketplace.createVendors({
-    name: body.name,
-    handle: body.handle,
-    email: body.email,
+    name: body.name.trim(),
+    handle,
+    email: normalizeEmail(body.email),
     phone: body.phone || null,
     description: body.description || null,
     logo_url: body.logo_url || null,
@@ -118,7 +214,10 @@ export const createVendorFromOnboarding = async (req: MedusaRequest) => {
     country_code: body.country_code || null,
     status: shouldSubmit ? "submitted" : "draft",
     submitted_at: timestamp,
-    metadata: body.metadata || null,
+    metadata: {
+      ...(body.metadata || {}),
+      requested_handle: body.handle || null,
+    },
   })
 
   let member: Record<string, any> | null = null
@@ -126,7 +225,7 @@ export const createVendorFromOnboarding = async (req: MedusaRequest) => {
   if (body.owner_email || body.email) {
     member = await marketplace.createVendorMembers({
       vendor_id: vendor.id,
-      email: body.owner_email || body.email,
+      email: normalizeEmail(body.owner_email || body.email),
       first_name: body.owner_first_name || null,
       last_name: body.owner_last_name || null,
       role: "owner",
