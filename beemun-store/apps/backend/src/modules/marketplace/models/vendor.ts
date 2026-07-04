@@ -1,5 +1,10 @@
 import { model } from "@medusajs/framework/utils"
 import { VENDOR_STATUSES } from "../constants"
+import VendorDocument from "./vendor-document"
+import VendorInvite from "./vendor-invite"
+import VendorMember from "./vendor-member"
+import VendorProduct from "./vendor-product"
+import VendorReviewEvent from "./vendor-review-event"
 
 const Vendor = model
   .define({ name: "Vendor", tableName: "beemun_vendor" }, {
@@ -23,6 +28,21 @@ const Vendor = model
     archived_at: model.dateTime().nullable(),
     zps_profile_score: model.number().nullable(),
     metadata: model.json().nullable(),
+    members: model.hasMany(() => VendorMember, {
+      mappedBy: "vendor",
+    }),
+    invites: model.hasMany(() => VendorInvite, {
+      mappedBy: "vendor",
+    }),
+    documents: model.hasMany(() => VendorDocument, {
+      mappedBy: "vendor",
+    }),
+    review_events: model.hasMany(() => VendorReviewEvent, {
+      mappedBy: "vendor",
+    }),
+    products: model.hasMany(() => VendorProduct, {
+      mappedBy: "vendor",
+    }),
   })
   .indexes([
     {

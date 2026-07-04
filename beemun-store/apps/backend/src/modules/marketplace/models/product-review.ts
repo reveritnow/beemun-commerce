@@ -1,5 +1,7 @@
 import { model } from "@medusajs/framework/utils"
 import { PRODUCT_REVIEW_STATUSES } from "../constants"
+import ProductQualitySignal from "./product-quality-signal"
+import ProductReviewEvent from "./product-review-event"
 import VendorProduct from "./vendor-product"
 
 const ProductReview = model
@@ -26,6 +28,12 @@ const ProductReview = model
     rejection_reason: model.text().nullable(),
     change_request: model.text().nullable(),
     metadata: model.json().nullable(),
+    events: model.hasMany(() => ProductReviewEvent, {
+      mappedBy: "product_review",
+    }),
+    quality_signals: model.hasMany(() => ProductQualitySignal, {
+      mappedBy: "product_review",
+    }),
   })
   .indexes([
     {

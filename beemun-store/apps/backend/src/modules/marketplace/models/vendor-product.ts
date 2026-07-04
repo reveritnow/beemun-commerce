@@ -1,5 +1,6 @@
 import { model } from "@medusajs/framework/utils"
 import { VENDOR_PRODUCT_RELATIONSHIP_TYPES } from "../constants"
+import ProductReview from "./product-review"
 import Vendor from "./vendor"
 
 const VendorProduct = model
@@ -16,6 +17,9 @@ const VendorProduct = model
     ownership_started_at: model.dateTime().nullable(),
     ownership_ended_at: model.dateTime().nullable(),
     metadata: model.json().nullable(),
+    reviews: model.hasMany(() => ProductReview, {
+      mappedBy: "vendor_product",
+    }),
   })
   .indexes([
     {
