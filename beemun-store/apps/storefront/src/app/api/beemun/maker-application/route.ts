@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { getBeemunSession } from "../../../../lib/get-session"
 
 const cleanBackendUrl = (url: string) => url.replace(/\/+$/, "")
 
@@ -18,6 +19,18 @@ const errorMessageFrom = async (response: Response) => {
 
 export async function POST(request: NextRequest) {
   const backendUrl = process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL
+  const session = await getBeemunSession()
+  const user = (session as any)?.user
+
+  if (!user?.email) {
+    return NextResponse.json(
+      {
+        message:
+          "Please sign in with your BEEMUN account before submitting a maker application.",
+      },
+      { status: 401 }
+    )
+  }
 
   if (!backendUrl) {
     return NextResponse.json(
@@ -50,6 +63,8 @@ export async function POST(request: NextRequest) {
         },
         body: JSON.stringify({
           ...payload,
+          email: user.email,
+          owner_email: user.email,
           submit: true,
           status: "submitted",
         }),

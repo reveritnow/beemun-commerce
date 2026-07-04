@@ -1,6 +1,7 @@
 "use client"
 
 import { FormEvent, useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 
 type FormState = "idle" | "submitting" | "success" | "error"
 
@@ -16,7 +17,6 @@ const categories = [
 const requiredFields = [
   "businessName",
   "contactName",
-  "email",
   "country",
   "productCategories",
   "makerStory",
@@ -42,7 +42,16 @@ const splitName = (value: string) => {
   return { firstName, lastName }
 }
 
-export default function MakerApplicationForm() {
+export default function MakerApplicationForm({
+  countryCode,
+  userEmail,
+  userName,
+}: {
+  countryCode: string
+  userEmail: string
+  userName?: string | null
+}) {
+  const router = useRouter()
   const [state, setState] = useState<FormState>("idle")
   const [error, setError] = useState("")
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
@@ -83,7 +92,7 @@ export default function MakerApplicationForm() {
       return
     }
 
-    const { firstName, lastName } = splitName(values.contactName)
+    const { firstName, lastName } = splitName(values.contactName || userName || "")
 
     setState("submitting")
 
@@ -96,8 +105,8 @@ export default function MakerApplicationForm() {
         body: JSON.stringify({
           name: values.businessName,
           handle: slugify(values.businessName),
-          email: values.email,
-          owner_email: values.email,
+          email: userEmail,
+          owner_email: userEmail,
           owner_first_name: firstName,
           owner_last_name: lastName,
           phone: values.phone || null,
@@ -109,6 +118,7 @@ export default function MakerApplicationForm() {
           notes: values.notes || null,
           metadata: {
             public_application_source: "become-a-maker",
+            beemun_auth_email: userEmail,
             contact_name: values.contactName,
             website_or_instagram: values.website || null,
             product_categories: selectedCategories,
@@ -138,6 +148,8 @@ export default function MakerApplicationForm() {
       form.reset()
       setSelectedCategories([])
       setState("success")
+      router.push(`/${countryCode}/maker-portal`)
+      router.refresh()
     } catch (submitError) {
       setState("error")
       setError(
@@ -179,8 +191,8 @@ export default function MakerApplicationForm() {
               <input name="contactName" required />
             </label>
             <label>
-              <span>Email *</span>
-              <input name="email" type="email" required />
+              <span>Email</span>
+              <input name="email" type="email" value={userEmail} disabled />
             </label>
             <label>
               <span>Phone</span>
