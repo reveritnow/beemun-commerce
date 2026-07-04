@@ -18,11 +18,18 @@
   text-transform: uppercase;
 }
 
-.productTheme :global(.beemun-product-kicker span:last-child) {
+.productTheme :global(.beemun-product-kicker a) {
   background: #17281d;
   border-radius: 999px;
   color: #fffaf0;
   padding: 10px 14px;
+  text-decoration: none;
+  transition: background 180ms ease, transform 180ms ease;
+}
+
+.productTheme :global(.beemun-product-kicker a:hover) {
+  background: #31452b;
+  transform: translateY(-2px);
 }
 
 .productTheme :global(.beemun-product-hero) {
@@ -119,7 +126,7 @@
   margin-bottom: 0;
 }
 
-.productTheme :global(.beemun-product-buybox-top span) {
+.productTheme :global(.beemun-product-buybox-top a) {
   background: #e7efd9;
   border: 1px solid rgba(49, 69, 43, .14);
   border-radius: 999px;
@@ -127,7 +134,31 @@
   font-size: 11px;
   font-weight: 950;
   padding: 9px 12px;
+  text-decoration: none;
   text-transform: uppercase;
+  transition: background 180ms ease, transform 180ms ease;
+}
+
+.productTheme :global(.beemun-product-buybox-top a:hover) {
+  background: #dfe8c9;
+  transform: translateY(-2px);
+}
+
+.productTheme :global(.beemun-product-zps-link) {
+  letter-spacing: .18em;
+}
+
+.productTheme :global(.beemun-product-maker a),
+.productTheme :global(.beemun-text-link) {
+  color: #31452b;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+}
+
+.productTheme :global(.beemun-product-maker a:hover),
+.productTheme :global(.beemun-text-link:hover) {
+  color: #17281d;
 }
 
 .productTheme :global(.beemun-product-buybox h1) {
@@ -327,6 +358,24 @@
 .productTheme :global(.beemun-product-page [data-testid="related-products-container"] li:hover) {
   box-shadow: 0 26px 62px rgba(49, 69, 43, .12);
   transform: translateY(-4px);
+}
+
+.productTheme :global(.beemun-more-from-maker) {
+  background: linear-gradient(180deg, #f7efdf, #f3ead8);
+  border-bottom: 1px solid rgba(92, 75, 45, .12);
+  border-top: 1px solid rgba(92, 75, 45, .12);
+  max-width: none;
+  padding-left: calc((100% - 1180px) / 2 + 24px);
+  padding-right: calc((100% - 1180px) / 2 + 24px);
+}
+
+.productTheme :global(.beemun-more-from-maker .beemun-product-section-head a) {
+  color: #31452b;
+  display: inline-flex;
+  font-weight: 950;
+  margin-top: 16px;
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
 
 @media (max-width: 1000px) {
