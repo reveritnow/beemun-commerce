@@ -42,7 +42,7 @@ type DocumentState = Record<
 >
 
 const MAX_DOCUMENT_BYTES = 2 * 1024 * 1024
-const MAX_TOTAL_DOCUMENT_BYTES = 4 * 1024 * 1024
+const MAX_TOTAL_DOCUMENT_BYTES = 3 * 1024 * 1024
 const ACCEPTED_DOCUMENT_TYPES = [
   "application/pdf",
   "image/jpeg",
@@ -440,7 +440,7 @@ export default function MakerApplicationForm({
 
     if (totalDocumentBytes > MAX_TOTAL_DOCUMENT_BYTES) {
       setStep(3)
-      setError("Please keep total document uploads under 4 MB.")
+      setError("Please keep total document uploads under 3 MB.")
       return
     }
 

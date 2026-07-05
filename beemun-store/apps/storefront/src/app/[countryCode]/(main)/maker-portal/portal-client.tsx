@@ -25,12 +25,29 @@ type PortalData = {
   messages: Array<Record<string, any>>
 }
 
+type PortalTab =
+  | "overview"
+  | "application"
+  | "documents"
+  | "tasks"
+  | "messages"
+  | "timeline"
+
 const stages = [
-  ["submitted", "Submitted", "Your India maker application has reached BEEMUN."],
-  ["initial_review", "Initial Review", "Business details, address, and agreement are checked."],
-  ["zps_review", "ZPS Review", "Maker philosophy, ingredients, packaging, and documents are reviewed."],
-  ["final_decision", "Final Decision", "BEEMUN approves, rejects, or requests changes."],
-  ["unlocked", "Maker Dashboard Unlocked", "Product onboarding comes only after approval."],
+  ["submitted", "Application received", "Your India maker application has reached BEEMUN."],
+  ["initial_review", "Initial review", "Business details, address, agreement, and completeness are checked."],
+  ["zps_review", "ZPS review", "Maker philosophy, ingredients, packaging, and documents are reviewed."],
+  ["final_decision", "Final decision", "BEEMUN approves, rejects, or requests changes."],
+  ["unlocked", "Maker workspace unlocked", "Product onboarding comes only after approval."],
+]
+
+const portalTabs: Array<{ key: PortalTab; label: string }> = [
+  { key: "overview", label: "Overview" },
+  { key: "application", label: "Application Details" },
+  { key: "documents", label: "Documents" },
+  { key: "tasks", label: "Tasks" },
+  { key: "messages", label: "Messages" },
+  { key: "timeline", label: "Review Timeline" },
 ]
 
 const stageIndexFor = (status?: string | null) => {
@@ -45,35 +62,35 @@ const statusCopy = (status?: string | null) => {
   if (status === "approved") {
     return {
       label: "Maker approved",
-      headline: "Maker Dashboard unlocked",
-      body: "BEEMUN approved your maker profile. Product onboarding is still a separate controlled phase.",
-      next: "Next: product onboarding will open in a later phase.",
+      headline: "Maker workspace unlocked",
+      body: "BEEMUN approved your maker profile. Product onboarding remains a separate controlled stage.",
+      next: "Product onboarding will open in a later phase.",
     }
   }
 
   if (status === "rejected") {
     return {
       label: "Decision recorded",
-      headline: "Application rejected",
-      body: "BEEMUN has recorded a decision. Review notes explain the reason and any possible next steps.",
-      next: "Next: review notes and messages from BEEMUN.",
+      headline: "Application decision recorded",
+      body: "BEEMUN has reviewed your application. Review notes explain the reason and any possible next steps.",
+      next: "Read BEEMUN's notes and reply in Messages if requested.",
     }
   }
 
   if (status === "under_review") {
     return {
-      label: "Application under review",
+      label: "Business review in progress",
       headline: "BEEMUN is reviewing your maker profile",
       body: "Your business identity, documents, maker philosophy, packaging, and ZPS 100 fit are being reviewed.",
-      next: "Next: BEEMUN may send messages or tasks if clarification is needed.",
+      next: "BEEMUN may send messages or tasks if clarification is needed.",
     }
   }
 
   return {
-    label: "Application submitted",
-    headline: "Your application is in the review queue",
+    label: "Application received",
+    headline: "Your application is safely submitted",
     body: "BEEMUN received your India maker application. Product tools remain locked during review.",
-    next: "Next: initial completeness review.",
+    next: "Initial completeness review comes next.",
   }
 }
 
@@ -86,12 +103,19 @@ const formatDate = (value?: string | null) => {
   }).format(new Date(value))
 }
 
+const formatSize = (value?: number | string | null) => {
+  const size = Number(value || 0)
+  if (!Number.isFinite(size) || size <= 0) return "Size not recorded"
+  if (size >= 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`
+  return `${Math.max(1, Math.round(size / 1024))} KB`
+}
+
 const documentStatus = (status?: string | null) => {
   if (status === "approved") return "Approved"
   if (status === "needs_changes") return "Needs replacement"
   if (status === "rejected") return "Rejected"
   if (status === "submitted") return "Submitted"
-  return "Pending"
+  return "Missing"
 }
 
 const MAX_DOCUMENT_BYTES = 2 * 1024 * 1024
@@ -112,6 +136,9 @@ const documentFileLabel = (document: Record<string, any>) => {
   )
 }
 
+const hasStoredFile = (document: Record<string, any>) =>
+  Boolean(document.file_url && document.metadata?.storage_status === "stored")
+
 export default function MakerPortalClient({
   countryCode,
 }: {
@@ -119,11 +146,14 @@ export default function MakerPortalClient({
 }) {
   const [data, setData] = useState<PortalData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState<PortalTab>("overview")
   const [message, setMessage] = useState("")
   const [error, setError] = useState("")
   const [documentFile, setDocumentFile] = useState<File | null>(null)
   const [documentFileError, setDocumentFileError] = useState("")
   const [documentSubmitting, setDocumentSubmitting] = useState(false)
+  const [messageSubmitting, setMessageSubmitting] = useState(false)
+  const [taskSubmitting, setTaskSubmitting] = useState<string | null>(null)
 
   const vendor = data?.vendor
   const metadata = vendor?.metadata || {}
@@ -134,7 +164,17 @@ export default function MakerPortalClient({
   const tasks = useMemo(() => data?.tasks || [], [data?.tasks])
   const messages = useMemo(() => data?.messages || [], [data?.messages])
   const documents = useMemo(() => data?.documents || [], [data?.documents])
-  const latestReviewEvent = data?.review_events?.[data.review_events.length - 1]
+  const reviewEvents = useMemo(
+    () => data?.review_events || [],
+    [data?.review_events]
+  )
+  const latestReviewEvent = reviewEvents[reviewEvents.length - 1]
+  const openTasks = tasks.filter((task) => task.status !== "completed")
+  const uploadedDocuments = documents.filter(hasStoredFile)
+  const missingDocuments = documents.filter(
+    (document) => document.metadata?.required === true && !hasStoredFile(document)
+  )
+  const latestMessage = messages[messages.length - 1]
 
   const documentPayloadFromFile = (file: File) => {
     return new Promise<{
@@ -246,13 +286,31 @@ export default function MakerPortalClient({
     const formData = new FormData(form)
     const text = String(formData.get("message") || "").trim()
 
-    if (!text) return
+    if (!text || messageSubmitting) return
 
     try {
+      setMessageSubmitting(true)
       await sendPortalAction({ action: "message", text })
+      setMessage("Message sent to BEEMUN.")
       form.reset()
     } catch (sendError) {
       setError(sendError instanceof Error ? sendError.message : "Message failed.")
+    } finally {
+      setMessageSubmitting(false)
+    }
+  }
+
+  const completeTask = async (taskId: string) => {
+    if (taskSubmitting) return
+
+    try {
+      setTaskSubmitting(taskId)
+      await sendPortalAction({ action: "complete_task", task_id: taskId })
+      setMessage("Task marked complete.")
+    } catch (taskError) {
+      setError(taskError instanceof Error ? taskError.message : "Task update failed.")
+    } finally {
+      setTaskSubmitting(null)
     }
   }
 
@@ -284,6 +342,7 @@ export default function MakerPortalClient({
         upload,
         note: String(formData.get("note") || ""),
       })
+      setMessage("Document uploaded for BEEMUN review.")
       form.reset()
       setDocumentFile(null)
     } catch (sendError) {
@@ -293,6 +352,388 @@ export default function MakerPortalClient({
     }
   }
 
+  const renderOverview = () => (
+    <div className="beemun-portal-dashboard-grid">
+      <article className="beemun-portal-card beemun-portal-card-wide">
+        <div className="beemun-portal-card-head">
+          <div>
+            <p className="beemun-eyebrow">Approval workspace</p>
+            <h2>{status.next}</h2>
+          </div>
+          <span>{vendor?.status.replace("_", " ")}</span>
+        </div>
+        <div className="beemun-portal-metrics">
+          <div>
+            <span>Open tasks</span>
+            <strong>{openTasks.length}</strong>
+          </div>
+          <div>
+            <span>Documents received</span>
+            <strong>{uploadedDocuments.length}</strong>
+          </div>
+          <div>
+            <span>Required missing</span>
+            <strong>{missingDocuments.length}</strong>
+          </div>
+        </div>
+      </article>
+
+      <article className="beemun-portal-card">
+        <p className="beemun-eyebrow">Next step</p>
+        <h2>{openTasks.length ? "Action requested" : "BEEMUN review continues"}</h2>
+        <p>
+          {openTasks.length
+            ? "BEEMUN has requested information from you. Open Tasks to respond."
+            : "We will request anything else here. Product tools stay closed until approval."}
+        </p>
+        <button className="beemun-btn-secondary" type="button" onClick={() => setActiveTab(openTasks.length ? "tasks" : "timeline")}>
+          {openTasks.length ? "Open tasks" : "View timeline"}
+        </button>
+      </article>
+
+      <article className="beemun-portal-card">
+        <p className="beemun-eyebrow">Latest message</p>
+        <h2>{latestMessage ? "Conversation updated" : "No messages yet"}</h2>
+        <p>
+          {latestMessage
+            ? messageText(latestMessage)
+            : "BEEMUN review communication will appear in Messages."}
+        </p>
+        <button className="beemun-btn-secondary" type="button" onClick={() => setActiveTab("messages")}>
+          Open messages
+        </button>
+      </article>
+
+      <article className="beemun-portal-card beemun-portal-lock-card">
+        <p className="beemun-eyebrow">
+          {isApproved ? "Unlocked status" : "Locked maker workspace"}
+        </p>
+        <h2>
+          {isApproved
+            ? "Maker workspace unlocked"
+            : "Maker workspace unlocks after approval."}
+        </h2>
+        <p>
+          {isApproved
+            ? "Your maker profile is approved. Product onboarding, uploads, orders, inventory, payouts, and analytics are still not part of this stage."
+            : "No product uploads, orders, analytics, payouts, shipping, or inventory tools are available during application review."}
+        </p>
+        <button className="beemun-disabled-cta" type="button" disabled>
+          Add your first product - coming next
+        </button>
+      </article>
+    </div>
+  )
+
+  const renderApplication = () => (
+    <div className="beemun-portal-dashboard-grid">
+      <article className="beemun-portal-card">
+        <p className="beemun-eyebrow">Business identity</p>
+        <h2>{metadata.brand_public_name || vendor?.name}</h2>
+        <dl className="beemun-summary-list">
+          <div>
+            <dt>Legal name</dt>
+            <dd>{metadata.legal_business_name || vendor?.name}</dd>
+          </div>
+          <div>
+            <dt>Business type</dt>
+            <dd>{metadata.business_type || "Not provided"}</dd>
+          </div>
+          <div>
+            <dt>GSTIN</dt>
+            <dd>{metadata.gstin || "Not provided"}</dd>
+          </div>
+          <div>
+            <dt>Country</dt>
+            <dd>{metadata.country_name || "India"}</dd>
+          </div>
+        </dl>
+      </article>
+
+      <article className="beemun-portal-card">
+        <p className="beemun-eyebrow">Contact and address</p>
+        <h2>{metadata.contact_name || "Primary contact"}</h2>
+        <dl className="beemun-summary-list">
+          <div>
+            <dt>Email</dt>
+            <dd>{vendor?.email || "Not provided"}</dd>
+          </div>
+          <div>
+            <dt>Phone</dt>
+            <dd>{vendor?.phone || "Not provided"}</dd>
+          </div>
+          <div>
+            <dt>Address</dt>
+            <dd>
+              {[address.line_1, address.line_2, address.city, address.state, address.pin_code]
+                .filter(Boolean)
+                .join(", ") || "Not provided"}
+            </dd>
+          </div>
+        </dl>
+      </article>
+
+      <article className="beemun-portal-card">
+        <p className="beemun-eyebrow">Maker philosophy</p>
+        <h2>Application summary</h2>
+        <dl className="beemun-summary-list">
+          <div>
+            <dt>Submitted</dt>
+            <dd>{formatDate(vendor?.submitted_at)}</dd>
+          </div>
+          <div>
+            <dt>Categories</dt>
+            <dd>
+              {Array.isArray(metadata.product_categories)
+                ? metadata.product_categories.join(", ")
+                : "Not provided"}
+            </dd>
+          </div>
+          <div>
+            <dt>ZPS 100 fit</dt>
+            <dd>{metadata.zps_fit || "Not provided"}</dd>
+          </div>
+        </dl>
+      </article>
+
+      <article className="beemun-portal-card">
+        <p className="beemun-eyebrow">Agreement</p>
+        <h2>Maker terms</h2>
+        <dl className="beemun-summary-list">
+          <div>
+            <dt>Status</dt>
+            <dd>{metadata.agreement_accepted ? "Accepted" : "Not recorded"}</dd>
+          </div>
+          <div>
+            <dt>Accepted at</dt>
+            <dd>{formatDate(metadata.agreement_accepted_at)}</dd>
+          </div>
+          <div>
+            <dt>Version</dt>
+            <dd>{metadata.agreement_version || "maker-application-v1"}</dd>
+          </div>
+        </dl>
+      </article>
+    </div>
+  )
+
+  const renderDocuments = () => (
+    <div className="beemun-portal-dashboard-grid">
+      <article className="beemun-portal-card beemun-portal-card-wide">
+        <div className="beemun-portal-card-head">
+          <div>
+            <p className="beemun-eyebrow">Documents</p>
+            <h2>Upload documents for review</h2>
+            <p>
+              Upload or replace requested files here. BEEMUN may ask for a clearer
+              copy if anything is incomplete.
+            </p>
+          </div>
+          <span>{uploadedDocuments.length} received</span>
+        </div>
+        {documents.length ? (
+          <div className="beemun-document-list">
+            {documents.map((document) => (
+              <div className="beemun-document-row" key={document.id}>
+                <div>
+                  <strong>{document.title}</strong>
+                  <p>
+                    {hasStoredFile(document)
+                      ? `${documentFileLabel(document)} / ${document.metadata?.mime_type || "File"} / ${formatSize(document.metadata?.file_size)}`
+                      : "No uploaded file yet."}
+                  </p>
+                </div>
+                <div>
+                  <span>{documentStatus(document.status)}</span>
+                  {hasStoredFile(document) && (
+                    <a
+                      className="beemun-btn-secondary"
+                      href={`/api/beemun/maker-portal/documents/${document.id}/file`}
+                      rel="noreferrer"
+                      target="_blank"
+                    >
+                      View document
+                    </a>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p>No documents recorded yet. BEEMUN will request anything missing here.</p>
+        )}
+      </article>
+
+      <article className="beemun-portal-card beemun-portal-card-wide">
+        <p className="beemun-eyebrow">Upload center</p>
+        <h2>Send a document to BEEMUN</h2>
+        <form onSubmit={submitDocument}>
+          <select name="document_id" defaultValue="">
+            <option value="">Upload a new document</option>
+            {documents.map((document) => (
+              <option key={document.id} value={document.id}>
+                Replace or complete: {document.title}
+              </option>
+            ))}
+          </select>
+          <input name="title" placeholder="Document title" />
+          <select name="document_type" defaultValue="application">
+            <option value="application">Application document</option>
+            <option value="gst_certificate">GST certificate</option>
+            <option value="business_registration">Business registration proof</option>
+            <option value="brand_logo">Brand logo</option>
+            <option value="certifications">Certifications</option>
+            <option value="supporting_documents">Supporting document</option>
+          </select>
+          <label className="beemun-file-drop">
+            <input
+              accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
+              type="file"
+              onChange={(event) =>
+                handleDocumentFile(event.currentTarget.files?.[0] || null)
+              }
+            />
+            <span>{documentFile ? "Replace file" : "Choose file"}</span>
+          </label>
+          {documentFile && (
+            <div className="beemun-upload-status">
+              <div>
+                <strong>{documentFile.name}</strong>
+                <span>{documentFile.type || "File"} / {formatSize(documentFile.size)}</span>
+              </div>
+              <button type="button" onClick={() => setDocumentFile(null)}>
+                Remove
+              </button>
+            </div>
+          )}
+          {documentFileError && (
+            <p className="beemun-upload-error">{documentFileError}</p>
+          )}
+          <textarea name="note" rows={2} placeholder="Optional note" />
+          <button
+            className="beemun-btn-secondary"
+            disabled={documentSubmitting}
+            type="submit"
+          >
+            {documentSubmitting ? "Uploading..." : "Upload document"}
+          </button>
+        </form>
+      </article>
+    </div>
+  )
+
+  const renderTasks = () => (
+    <article className="beemun-portal-card beemun-portal-card-wide">
+      <p className="beemun-eyebrow">Tasks</p>
+      <h2>Review checklist</h2>
+      {tasks.length ? (
+        <div className="beemun-task-list">
+          {tasks.map((task) => (
+            <div className="beemun-task-card" key={task.id}>
+              <div>
+                <span>{task.status === "completed" ? "Completed" : "Requested"}</span>
+                <strong>{task.title}</strong>
+                <p>{task.description || "No extra detail provided."}</p>
+              </div>
+              {task.status !== "completed" && (
+                <button
+                  className="beemun-btn-secondary"
+                  disabled={taskSubmitting === task.id}
+                  type="button"
+                  onClick={() => completeTask(task.id)}
+                >
+                  {taskSubmitting === task.id ? "Saving..." : "Mark completed"}
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p>No open tasks. BEEMUN will request anything else here.</p>
+      )}
+    </article>
+  )
+
+  const renderMessages = () => (
+    <article className="beemun-portal-card beemun-portal-card-wide">
+      <p className="beemun-eyebrow">Messages</p>
+      <h2>Review conversation</h2>
+      {messages.length ? (
+        <div className="beemun-message-thread">
+          {messages.map((item) => {
+            const isApplicant = item.author_type === "applicant"
+            return (
+              <div
+                className={isApplicant ? "beemun-message-bubble maker" : "beemun-message-bubble admin"}
+                key={item.id}
+              >
+                <span>{isApplicant ? "You" : "BEEMUN Review"}</span>
+                <p>{messageText(item)}</p>
+              </div>
+            )
+          })}
+        </div>
+      ) : (
+        <p>No messages yet. BEEMUN review communication will appear here.</p>
+      )}
+      <form onSubmit={submitMessage}>
+        <textarea name="message" rows={3} placeholder="Reply to BEEMUN" />
+        <button
+          className="beemun-btn-secondary"
+          disabled={messageSubmitting}
+          type="submit"
+        >
+          {messageSubmitting ? "Sending..." : "Send message"}
+        </button>
+      </form>
+    </article>
+  )
+
+  const renderTimeline = () => (
+    <div className="beemun-portal-dashboard-grid">
+      <article className="beemun-portal-card beemun-portal-card-wide">
+        <div className="beemun-portal-card-head">
+          <div>
+            <p className="beemun-eyebrow">Review timeline</p>
+            <h2>{status.next}</h2>
+          </div>
+          <span>{vendor?.status.replace("_", " ")}</span>
+        </div>
+        <ol className="beemun-review-timeline">
+          {stages.map(([key, title, copy], index) => (
+            <li
+              key={key}
+              className={
+                index < stageIndex
+                  ? "complete"
+                  : index === stageIndex
+                  ? "current"
+                  : "locked"
+              }
+            >
+              <span>{index + 1}</span>
+              <div>
+                <strong>{title}</strong>
+                <p>{copy}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </article>
+
+      <article className="beemun-portal-card beemun-portal-card-wide">
+        <p className="beemun-eyebrow">Review notes</p>
+        <h2>BEEMUN reviewer context</h2>
+        <p>
+          {vendor?.status_reason ||
+            latestReviewEvent?.notes ||
+            latestReviewEvent?.reason ||
+            "No reviewer notes yet. BEEMUN will add notes if clarification or a decision is needed."}
+        </p>
+      </article>
+    </div>
+  )
+
   return (
     <section className="beemun-section beemun-application-section">
       {loading ? (
@@ -300,7 +741,7 @@ export default function MakerPortalClient({
           <p className="beemun-eyebrow">BEEMUN Maker Portal</p>
           <h1>Loading your application...</h1>
         </div>
-      ) : error ? (
+      ) : error && !vendor ? (
         <p className="beemun-application-error">{error}</p>
       ) : !vendor ? (
         <div className="beemun-portal-empty">
@@ -332,313 +773,27 @@ export default function MakerPortalClient({
           </div>
 
           {message && <p className="beemun-application-success">{message}</p>}
+          {error && <p className="beemun-application-error">{error}</p>}
 
-          <div className="beemun-portal-grid">
-            <article className="beemun-portal-card beemun-portal-card-wide">
-              <div className="beemun-portal-card-head">
-                <div>
-                  <p className="beemun-eyebrow">Review timeline</p>
-                  <h2>{status.next}</h2>
-                </div>
-                <span>{vendor.status.replace("_", " ")}</span>
-              </div>
-              <ol className="beemun-review-timeline">
-                {stages.map(([key, title, copy], index) => (
-                  <li
-                    key={key}
-                    className={
-                      index < stageIndex
-                        ? "complete"
-                        : index === stageIndex
-                        ? "current"
-                        : "locked"
-                    }
-                  >
-                    <span>{index + 1}</span>
-                    <div>
-                      <strong>{title}</strong>
-                      <p>{copy}</p>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            </article>
-
-            <article className="beemun-portal-card">
-              <p className="beemun-eyebrow">Business identity</p>
-              <h2>{metadata.brand_public_name || vendor.name}</h2>
-              <dl className="beemun-summary-list">
-                <div>
-                  <dt>Legal name</dt>
-                  <dd>{metadata.legal_business_name || vendor.name}</dd>
-                </div>
-                <div>
-                  <dt>Business type</dt>
-                  <dd>{metadata.business_type || "Not provided"}</dd>
-                </div>
-                <div>
-                  <dt>GSTIN</dt>
-                  <dd>{metadata.gstin || "Not provided"}</dd>
-                </div>
-                <div>
-                  <dt>Country</dt>
-                  <dd>{metadata.country_name || "India"}</dd>
-                </div>
-              </dl>
-            </article>
-
-            <article className="beemun-portal-card">
-              <p className="beemun-eyebrow">Contact and address</p>
-              <h2>{metadata.contact_name || "Primary contact"}</h2>
-              <dl className="beemun-summary-list">
-                <div>
-                  <dt>Email</dt>
-                  <dd>{vendor.email || "Not provided"}</dd>
-                </div>
-                <div>
-                  <dt>Phone</dt>
-                  <dd>{vendor.phone || "Not provided"}</dd>
-                </div>
-                <div>
-                  <dt>Address</dt>
-                  <dd>
-                    {[address.line_1, address.line_2, address.city, address.state, address.pin_code]
-                      .filter(Boolean)
-                      .join(", ") || "Not provided"}
-                  </dd>
-                </div>
-              </dl>
-            </article>
-
-            <article className="beemun-portal-card">
-              <p className="beemun-eyebrow">Application summary</p>
-              <h2>Maker philosophy</h2>
-              <dl className="beemun-summary-list">
-                <div>
-                  <dt>Submitted</dt>
-                  <dd>{formatDate(vendor.submitted_at)}</dd>
-                </div>
-                <div>
-                  <dt>Categories</dt>
-                  <dd>
-                    {Array.isArray(metadata.product_categories)
-                      ? metadata.product_categories.join(", ")
-                      : "Not provided"}
-                  </dd>
-                </div>
-                <div>
-                  <dt>ZPS 100 fit</dt>
-                  <dd>{metadata.zps_fit || "Not provided"}</dd>
-                </div>
-              </dl>
-            </article>
-
-            <article className="beemun-portal-card">
-              <p className="beemun-eyebrow">Agreement</p>
-              <h2>Maker terms</h2>
-              <dl className="beemun-summary-list">
-                <div>
-                  <dt>Status</dt>
-                  <dd>
-                    {metadata.agreement_accepted
-                      ? "Accepted"
-                      : "Not recorded"}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Accepted at</dt>
-                  <dd>{formatDate(metadata.agreement_accepted_at)}</dd>
-                </div>
-                <div>
-                  <dt>Version</dt>
-                  <dd>{metadata.agreement_version || "maker-application-v1"}</dd>
-                </div>
-              </dl>
-            </article>
-
-            <article className="beemun-portal-card">
-              <p className="beemun-eyebrow">Review notes</p>
-              <h2>BEEMUN reviewer context</h2>
-              <p>
-                {vendor.status_reason ||
-                  latestReviewEvent?.notes ||
-                  latestReviewEvent?.reason ||
-                  "No reviewer notes yet. BEEMUN will add notes if clarification or a decision is needed."}
-              </p>
-            </article>
-
-            <article className="beemun-portal-card">
-              <p className="beemun-eyebrow">Messages</p>
-              <h2>Review conversation</h2>
-              {messages.length ? (
-                <div className="beemun-mini-list">
-                  {messages.slice(-5).map((item) => (
-                    <div key={item.id}>
-                      <span>{item.author_type || "message"}</span>
-                      <p>{messageText(item)}</p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p>No messages yet. BEEMUN will keep review communication here.</p>
-              )}
-              <form onSubmit={submitMessage}>
-                <textarea name="message" rows={3} placeholder="Reply to BEEMUN" />
-                <button className="beemun-btn-secondary" type="submit">
-                  Send message
-                </button>
-              </form>
-            </article>
-
-            <article className="beemun-portal-card">
-              <p className="beemun-eyebrow">Tasks</p>
-              <h2>Clarifications</h2>
-              {tasks.length ? (
-                <div className="beemun-mini-list">
-                  {tasks.map((task) => (
-                    <div key={task.id}>
-                      <strong>{task.title}</strong>
-                      <p>{task.description || "No extra detail provided."}</p>
-                      <span>{task.status || "pending"}</span>
-                      {task.status !== "completed" && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            sendPortalAction({
-                              action: "complete_task",
-                              task_id: task.id,
-                            })
-                          }
-                        >
-                          Mark completed
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p>No open tasks. BEEMUN may add tasks if more detail is needed.</p>
-              )}
-            </article>
-
-            <article className="beemun-portal-card">
-              <p className="beemun-eyebrow">Documents</p>
-              <h2>Evidence and uploads</h2>
-              {documents.length ? (
-                <div className="beemun-mini-list">
-                  {documents.map((document) => (
-                    <div key={document.id}>
-                      <strong>{document.title}</strong>
-                      <span>{documentStatus(document.status)}</span>
-                      <p>
-                        {document.file_url
-                          ? `${documentFileLabel(document)}${
-                              document.metadata?.file_size
-                                ? ` / ${Math.max(
-                                    1,
-                                    Math.round(
-                                      Number(document.metadata.file_size) / 1024
-                                    )
-                                  )} KB`
-                                : ""
-                            }`
-                          : "No uploaded file yet. BEEMUN may request this as a task."}
-                      </p>
-                      {document.file_url && (
-                        <a
-                          className="beemun-btn-secondary"
-                          href={`/api/beemun/maker-portal/documents/${document.id}/file`}
-                          rel="noreferrer"
-                          target="_blank"
-                        >
-                          View document
-                        </a>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p>No documents recorded yet. BEEMUN will request anything missing here.</p>
-              )}
-              <form onSubmit={submitDocument}>
-                <select name="document_id" defaultValue="">
-                  <option value="">Upload a new document</option>
-                  {documents.map((document) => (
-                    <option key={document.id} value={document.id}>
-                      Replace or complete: {document.title}
-                    </option>
-                  ))}
-                </select>
-                <input name="title" placeholder="Document title" />
-                <select name="document_type" defaultValue="application">
-                  <option value="application">Application document</option>
-                  <option value="gst_certificate">GST certificate</option>
-                  <option value="business_registration">
-                    Business registration proof
-                  </option>
-                  <option value="brand_logo">Brand logo</option>
-                  <option value="certifications">Certifications</option>
-                  <option value="supporting_documents">
-                    Supporting document
-                  </option>
-                </select>
-                <label className="beemun-file-drop">
-                  <input
-                    accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
-                    type="file"
-                    onChange={(event) =>
-                      handleDocumentFile(event.currentTarget.files?.[0] || null)
-                    }
-                  />
-                  <span>{documentFile ? "Replace file" : "Choose file"}</span>
-                </label>
-                {documentFile && (
-                  <div className="beemun-upload-status">
-                    <div>
-                      <strong>{documentFile.name}</strong>
-                      <span>
-                        {documentFile.type || "File"} /{" "}
-                        {Math.max(1, Math.round(documentFile.size / 1024))} KB
-                      </span>
-                    </div>
-                    <button type="button" onClick={() => setDocumentFile(null)}>
-                      Remove
-                    </button>
-                  </div>
-                )}
-                {documentFileError && (
-                  <p className="beemun-upload-error">{documentFileError}</p>
-                )}
-                <textarea name="note" rows={2} placeholder="Optional note" />
-                <button
-                  className="beemun-btn-secondary"
-                  disabled={documentSubmitting}
-                  type="submit"
-                >
-                  {documentSubmitting ? "Uploading..." : "Upload document"}
-                </button>
-              </form>
-            </article>
-
-            <article className="beemun-portal-card beemun-portal-card-wide">
-              <p className="beemun-eyebrow">
-                {isApproved ? "Unlocked status" : "Locked product tools"}
-              </p>
-              <h2>
-                {isApproved
-                  ? "Maker Dashboard unlocked"
-                  : "Product tools unlock after approval."}
-              </h2>
-              <p>
-                {isApproved
-                  ? "Your maker profile is approved. Product onboarding, uploads, orders, inventory, payouts, and analytics are still not built in this phase."
-                  : "No product uploads, orders, analytics, payouts, shipping, or inventory tools are available during application review."}
-              </p>
-              <button className="beemun-disabled-cta" type="button" disabled>
-                Add your first product - coming next
+          <nav className="beemun-portal-tabs" aria-label="Maker approval workspace">
+            {portalTabs.map((tab) => (
+              <button
+                key={tab.key}
+                className={activeTab === tab.key ? "active" : ""}
+                type="button"
+                onClick={() => setActiveTab(tab.key)}
+              >
+                {tab.label}
               </button>
-            </article>
-          </div>
+            ))}
+          </nav>
+
+          {activeTab === "overview" && renderOverview()}
+          {activeTab === "application" && renderApplication()}
+          {activeTab === "documents" && renderDocuments()}
+          {activeTab === "tasks" && renderTasks()}
+          {activeTab === "messages" && renderMessages()}
+          {activeTab === "timeline" && renderTimeline()}
         </div>
       )}
     </section>

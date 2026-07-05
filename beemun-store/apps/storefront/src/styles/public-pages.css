@@ -619,6 +619,42 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.beemun-portal-tabs {
+  align-items: center;
+  background: #fffdf6;
+  border: 1px solid rgba(92, 75, 45, .14);
+  border-radius: 24px;
+  box-shadow: 0 18px 42px rgba(49, 69, 43, .06);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px;
+}
+
+.beemun-portal-tabs button {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: #52644d;
+  cursor: pointer;
+  font-weight: 950;
+  padding: 11px 14px;
+  transition: background .18s ease, border-color .18s ease, color .18s ease;
+}
+
+.beemun-portal-tabs button:hover,
+.beemun-portal-tabs button.active {
+  background: #17281d;
+  border-color: rgba(23, 40, 29, .22);
+  color: #fffaf0;
+}
+
+.beemun-portal-dashboard-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .beemun-portal-card,
 .beemun-portal-empty {
   display: grid;
@@ -715,6 +751,113 @@
 .beemun-portal-card form {
   display: grid;
   gap: 10px;
+}
+
+.beemun-portal-metrics {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.beemun-portal-metrics div,
+.beemun-document-row,
+.beemun-task-card,
+.beemun-message-bubble {
+  background: #f8f2e6;
+  border: 1px solid rgba(49, 69, 43, .1);
+  border-radius: 18px;
+  padding: 16px;
+}
+
+.beemun-portal-metrics span,
+.beemun-task-card span,
+.beemun-message-bubble span,
+.beemun-document-row span {
+  color: #6f7b66;
+  display: block;
+  font-size: 12px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.beemun-portal-metrics strong {
+  color: #17281d;
+  display: block;
+  font-size: 32px;
+  font-weight: 950;
+  line-height: 1;
+  margin-top: 7px;
+}
+
+.beemun-portal-lock-card {
+  background:
+    radial-gradient(circle at 94% 10%, rgba(174, 189, 148, .24), transparent 32%),
+    #fffdf6;
+}
+
+.beemun-document-list,
+.beemun-task-list,
+.beemun-message-thread {
+  display: grid;
+  gap: 12px;
+}
+
+.beemun-document-row,
+.beemun-task-card {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.beemun-document-row strong,
+.beemun-task-card strong {
+  color: #17281d;
+  display: block;
+  font-size: 17px;
+  font-weight: 950;
+  line-height: 1.3;
+}
+
+.beemun-document-row p,
+.beemun-task-card p {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.beemun-document-row > div:last-child {
+  align-items: flex-end;
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+}
+
+.beemun-message-thread {
+  max-height: 520px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.beemun-message-bubble {
+  max-width: min(680px, 92%);
+}
+
+.beemun-message-bubble.admin {
+  background: #17281d;
+  justify-self: start;
+}
+
+.beemun-message-bubble.admin span {
+  color: #dbe5c2;
+}
+
+.beemun-message-bubble.admin p {
+  color: #fffaf0;
+}
+
+.beemun-message-bubble.maker {
+  background: #f4eddd;
+  justify-self: end;
 }
 
 .beemun-disabled-cta {
@@ -846,10 +989,20 @@
   .beemun-onboarding-shell,
   .beemun-portal-status-card,
   .beemun-portal-grid,
+  .beemun-portal-dashboard-grid,
+  .beemun-portal-metrics,
   .beemun-document-grid,
   .beemun-review-grid,
   .beemun-review-timeline {
     grid-template-columns: 1fr;
+  }
+
+  .beemun-portal-tabs {
+    align-items: stretch;
+  }
+
+  .beemun-portal-tabs button {
+    flex: 1 1 calc(50% - 8px);
   }
 
   .beemun-onboarding-sidebar {
@@ -861,9 +1014,16 @@
   }
 
   .beemun-upload-status,
-  .beemun-document-head {
+  .beemun-document-head,
+  .beemun-document-row,
+  .beemun-task-card {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .beemun-document-row > div:last-child {
+    align-items: start;
+    justify-items: start;
   }
 
   .beemun-document-head span {
