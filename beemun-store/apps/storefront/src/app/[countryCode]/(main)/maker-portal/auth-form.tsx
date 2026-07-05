@@ -19,7 +19,7 @@ export default function MakerPortalAuthForm({
   )
   const [message, setMessage] = useState("")
   const callbackURL =
-    searchParams.get("callbackUrl") || `/${countryCode}/become-a-maker`
+    searchParams.get("callbackUrl") || `/${countryCode}/maker-portal/start`
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -51,7 +51,7 @@ export default function MakerPortalAuthForm({
         } as any)
         setState("success")
         setMessage(
-          "Check your email to verify your BEEMUN account. After verification, you can continue the maker application."
+          "Check your email to verify your BEEMUN account. After verification, BEEMUN will continue you to the right maker application step."
         )
         return
       }
