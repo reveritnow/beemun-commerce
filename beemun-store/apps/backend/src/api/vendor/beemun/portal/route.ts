@@ -144,9 +144,10 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
 
   if (action === "document") {
     let upload: ReturnType<typeof uploadFromDocument>
+    const documentId = String(body.document_id || "")
     const title = String(body.title || "").trim()
 
-    if (!title) {
+    if (!title && !documentId) {
       res.status(400).json({ message: "Document title is required." })
       return
     }
@@ -167,21 +168,51 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       return
     }
 
-    const document = await marketplace.createVendorDocuments({
-      vendor_id: vendor.id,
-      document_type: body.document_type || "application",
-      title,
-      file_url: "beemun-document://pending",
-      status: "submitted",
-      metadata: {
-        source: "maker_application_portal",
-        ...metadataForUpload(upload, {
+    let document: Record<string, any>
+
+    if (documentId) {
+      const existingDocuments = await marketplace.listVendorDocuments({
+        id: documentId,
+        vendor_id: vendor.id,
+      })
+
+      if (!existingDocuments[0]) {
+        res.status(404).json({ message: "Document request was not found." })
+        return
+      }
+
+      const existing = existingDocuments[0]
+      document = await marketplace.updateVendorDocuments({
+        id: existing.id,
+        title: title || existing.title,
+        status: "submitted",
+        metadata: {
+          ...(existing.metadata || {}),
+          source: "maker_application_portal",
+          ...metadataForUpload(upload, {
+            ...(existing.metadata || {}),
+            applicant_note: body.note || existing.metadata?.applicant_note || null,
+            required: existing.metadata?.required === true,
+          }),
+        },
+      })
+    } else {
+      document = await marketplace.createVendorDocuments({
+        vendor_id: vendor.id,
+        document_type: body.document_type || "application",
+        title,
+        file_url: "beemun-document://pending",
+        status: "submitted",
+        metadata: {
+          source: "maker_application_portal",
+          ...metadataForUpload(upload, {
+            applicant_note: body.note || null,
+            required: body.required === true,
+          }),
           applicant_note: body.note || null,
-          required: body.required === true,
-        }),
-        applicant_note: body.note || null,
-      },
-    })
+        },
+      })
+    }
 
     await storeDocumentUpload({
       marketplace,

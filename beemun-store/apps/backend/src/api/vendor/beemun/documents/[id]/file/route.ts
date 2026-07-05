@@ -1,6 +1,10 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { marketplaceServiceOf } from "../../../helpers"
-import { retrieveStoredDocumentFile } from "../../../document-storage"
+import {
+  assertPortalDocumentAccess,
+  DocumentUploadError,
+  retrieveStoredDocumentFile,
+} from "../../../document-storage"
 
 const activeStatuses = [
   "draft",
@@ -25,10 +29,26 @@ const findVendorByEmail = async (
   )
 }
 
+const safeFilename = (value: unknown) => {
+  const name = String(value || "beemun-document").replace(/[^\w.\- ()]/g, "_")
+  return name || "beemun-document"
+}
+
 export async function GET(req: MedusaRequest, res: MedusaResponse) {
   const marketplace = marketplaceServiceOf(req)
   const email = String(req.query.email || "").trim().toLowerCase()
   const documentId = String(req.params.id || "")
+
+  try {
+    assertPortalDocumentAccess(req.headers)
+  } catch (error) {
+    if (error instanceof DocumentUploadError) {
+      res.status(error.status).json({ message: error.message, code: error.code })
+      return
+    }
+
+    throw error
+  }
 
   if (!email) {
     res.status(401).json({ message: "Sign in is required." })
@@ -58,7 +78,7 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
   res.setHeader("Content-Type", stored.file.mime_type)
   res.setHeader(
     "Content-Disposition",
-    `inline; filename="${String(stored.file.original_filename).replace(/"/g, "")}"`
+    `inline; filename="${safeFilename(stored.file.original_filename)}"`
   )
   res.setHeader("Content-Length", String(buffer.length))
   res.status(200).send(buffer)

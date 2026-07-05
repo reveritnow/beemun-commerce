@@ -260,9 +260,14 @@ export default function MakerPortalClient({
     event.preventDefault()
     const form = event.currentTarget
     const formData = new FormData(form)
+    const documentId = String(formData.get("document_id") || "").trim()
+    const existingDocument = documents.find((item) => item.id === documentId)
     const title = String(formData.get("title") || "").trim()
 
-    if (!title) return
+    if (!title && !existingDocument) {
+      setDocumentFileError("Add a title or choose an existing document request.")
+      return
+    }
     if (!documentFile) {
       setDocumentFileError("Choose a document file before saving.")
       return
@@ -273,8 +278,9 @@ export default function MakerPortalClient({
       const upload = await documentPayloadFromFile(documentFile)
       await sendPortalAction({
         action: "document",
+        document_id: documentId || null,
         document_type: String(formData.get("document_type") || "application"),
-        title,
+        title: title || existingDocument?.title,
         upload,
         note: String(formData.get("note") || ""),
       })
@@ -555,7 +561,15 @@ export default function MakerPortalClient({
                 <p>No documents recorded yet. BEEMUN will request anything missing here.</p>
               )}
               <form onSubmit={submitDocument}>
-                <input name="title" placeholder="Document title" required />
+                <select name="document_id" defaultValue="">
+                  <option value="">Upload a new document</option>
+                  {documents.map((document) => (
+                    <option key={document.id} value={document.id}>
+                      Replace or complete: {document.title}
+                    </option>
+                  ))}
+                </select>
+                <input name="title" placeholder="Document title" />
                 <select name="document_type" defaultValue="application">
                   <option value="application">Application document</option>
                   <option value="gst_certificate">GST certificate</option>

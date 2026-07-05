@@ -558,8 +558,8 @@ export const createVendorFromOnboarding = async (req: MedusaRequest) => {
         vendor_id: vendor.id,
         document_type: documentType,
         title,
-        file_url: upload ? `beemun-document://pending` : nullableString(document.file_url),
-        status: upload || document.file_url ? "submitted" : "draft",
+        file_url: upload ? `beemun-document://pending` : null,
+        status: upload ? "submitted" : "draft",
         metadata: {
           source: "maker_application",
           ...metadataForUpload(upload, {

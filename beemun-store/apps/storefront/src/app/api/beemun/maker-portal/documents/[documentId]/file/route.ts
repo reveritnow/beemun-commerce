@@ -8,6 +8,7 @@ export async function GET(
   { params }: { params: Promise<{ documentId: string }> }
 ) {
   const backendUrl = process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL
+  const portalSecret = process.env.BEEMUN_PORTAL_API_SECRET
   const session = await getBeemunSession()
   const email = (session as any)?.user?.email as string | undefined
   const { documentId } = await params
@@ -23,13 +24,25 @@ export async function GET(
     )
   }
 
+  if (!portalSecret) {
+    return NextResponse.json(
+      { message: "BEEMUN document access is not configured." },
+      { status: 503 }
+    )
+  }
+
   const response = await fetch(
     `${cleanBackendUrl(
       backendUrl
     )}/vendor/beemun/documents/${encodeURIComponent(
       documentId
     )}/file?email=${encodeURIComponent(email)}`,
-    { cache: "no-store" }
+    {
+      cache: "no-store",
+      headers: {
+        "x-beemun-portal-secret": portalSecret,
+      },
+    }
   )
 
   if (!response.ok) {

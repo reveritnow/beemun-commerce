@@ -55,6 +55,16 @@ export const normalizeDocumentUpload = (
     )
   }
 
+  const decodedSize = Buffer.byteLength(content, "base64")
+
+  if (!decodedSize || decodedSize !== fileSize) {
+    throw new DocumentUploadError(
+      "Uploaded document size does not match the file data. Please replace the file and try again.",
+      400,
+      "invalid_document_size"
+    )
+  }
+
   if (!originalFilename) {
     throw new DocumentUploadError(
       "Uploaded document filename is missing.",
@@ -122,7 +132,30 @@ export const validateTotalDocumentUploadSize = (documents: unknown[]) => {
 }
 
 export const documentHasUpload = (document: Record<string, any>) => {
-  return Boolean(uploadFromDocument(document) || document.file_url)
+  return Boolean(uploadFromDocument(document))
+}
+
+export const assertPortalDocumentAccess = (headers: Record<string, any>) => {
+  const configuredSecret = process.env.BEEMUN_PORTAL_API_SECRET
+  const providedSecret = Array.isArray(headers["x-beemun-portal-secret"])
+    ? headers["x-beemun-portal-secret"][0]
+    : headers["x-beemun-portal-secret"]
+
+  if (!configuredSecret) {
+    throw new DocumentUploadError(
+      "BEEMUN document access is not configured.",
+      503,
+      "document_access_not_configured"
+    )
+  }
+
+  if (providedSecret !== configuredSecret) {
+    throw new DocumentUploadError(
+      "Document access is not authorized.",
+      403,
+      "document_access_denied"
+    )
+  }
 }
 
 export const metadataForUpload = (
