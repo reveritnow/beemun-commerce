@@ -45,6 +45,537 @@
   padding-top: 18px;
 }
 
+.beemun-maker-landing-cta {
+  align-items: start;
+  background:
+    radial-gradient(circle at 92% 14%, rgba(174, 189, 148, .28), transparent 32%),
+    linear-gradient(135deg, #fffdf6 0%, #f4eddd 100%);
+  border: 1px solid rgba(92, 75, 45, .16);
+  border-radius: 34px;
+  box-shadow: 0 26px 70px rgba(49, 69, 43, .1);
+  display: grid;
+  gap: 18px;
+  overflow: hidden;
+  padding: clamp(28px, 5vw, 56px);
+  position: relative;
+}
+
+.beemun-maker-landing-cta::after {
+  border: 1px solid rgba(49, 69, 43, .18);
+  border-radius: 999px;
+  color: rgba(49, 69, 43, .72);
+  content: "LOCKED UNTIL APPROVED";
+  font-size: 11px;
+  font-weight: 950;
+  letter-spacing: .08em;
+  padding: 10px 14px;
+  position: absolute;
+  right: clamp(22px, 4vw, 42px);
+  top: clamp(22px, 4vw, 42px);
+}
+
+.beemun-maker-landing-cta h2 {
+  color: #17281d;
+  font-size: clamp(34px, 5vw, 64px);
+  font-weight: 950;
+  letter-spacing: 0;
+  line-height: .98;
+  max-width: 820px;
+}
+
+.beemun-maker-landing-cta p:not(.beemun-eyebrow) {
+  color: #52644d;
+  font-size: clamp(17px, 1.8vw, 21px);
+  line-height: 1.72;
+  max-width: 720px;
+}
+
+.beemun-onboarding-shell {
+  align-items: start;
+  display: grid;
+  gap: 28px;
+  grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
+}
+
+.beemun-onboarding-sidebar,
+.beemun-wizard-card,
+.beemun-portal-status-card,
+.beemun-portal-card,
+.beemun-portal-empty {
+  background: #fffdf6;
+  border: 1px solid rgba(92, 75, 45, .16);
+  border-radius: 32px;
+  box-shadow: 0 24px 68px rgba(49, 69, 43, .08);
+}
+
+.beemun-onboarding-sidebar {
+  display: grid;
+  gap: 22px;
+  padding: 28px;
+  position: sticky;
+  top: 110px;
+}
+
+.beemun-onboarding-sidebar h1 {
+  color: #17281d;
+  font-size: clamp(31px, 3.8vw, 48px);
+  font-weight: 950;
+  line-height: 1;
+}
+
+.beemun-onboarding-sidebar p:not(.beemun-eyebrow) {
+  color: #62715b;
+  font-size: 16px;
+  line-height: 1.68;
+}
+
+.beemun-progress-card {
+  background: #f4eddd;
+  border: 1px solid rgba(49, 69, 43, .12);
+  border-radius: 22px;
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+
+.beemun-progress-card > div:first-child {
+  align-items: center;
+  color: #31452b;
+  display: flex;
+  font-size: 13px;
+  font-weight: 900;
+  justify-content: space-between;
+}
+
+.beemun-progress-card strong {
+  color: #17281d;
+  font-size: 18px;
+}
+
+.beemun-progress-track {
+  background: rgba(49, 69, 43, .12);
+  border-radius: 999px;
+  height: 10px;
+  overflow: hidden;
+}
+
+.beemun-progress-track span {
+  background: linear-gradient(90deg, #31452b, #91a66f);
+  border-radius: inherit;
+  display: block;
+  height: 100%;
+  transition: width .28s ease;
+}
+
+.beemun-step-list,
+.beemun-review-timeline {
+  display: grid;
+  gap: 12px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.beemun-step-list li,
+.beemun-review-timeline li {
+  align-items: center;
+  border: 1px solid rgba(49, 69, 43, .1);
+  border-radius: 18px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: auto 1fr;
+  padding: 12px;
+}
+
+.beemun-step-list li span,
+.beemun-review-timeline li > span {
+  align-items: center;
+  background: #f4eddd;
+  border-radius: 999px;
+  color: #31452b;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 950;
+  height: 34px;
+  justify-content: center;
+  width: 34px;
+}
+
+.beemun-step-list li.current,
+.beemun-review-timeline li.current {
+  background: #f7f0df;
+  border-color: rgba(49, 69, 43, .28);
+}
+
+.beemun-step-list li.complete span,
+.beemun-review-timeline li.complete > span,
+.beemun-review-timeline li.current > span {
+  background: #31452b;
+  color: #fffaf0;
+}
+
+.beemun-step-list strong,
+.beemun-review-timeline strong {
+  color: #17281d;
+  display: block;
+  font-weight: 950;
+}
+
+.beemun-step-list small,
+.beemun-review-timeline p {
+  color: #6f7b66;
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 2px 0 0;
+}
+
+.beemun-wizard-card {
+  display: grid;
+  gap: 24px;
+  min-height: 640px;
+  padding: clamp(24px, 4vw, 44px);
+}
+
+.beemun-wizard-head {
+  border-bottom: 1px solid rgba(92, 75, 45, .14);
+  display: grid;
+  gap: 10px;
+  padding-bottom: 22px;
+}
+
+.beemun-wizard-head h2 {
+  color: #17281d;
+  font-size: clamp(32px, 4vw, 54px);
+  font-weight: 950;
+  line-height: 1;
+}
+
+.beemun-wizard-head p,
+.beemun-wizard-panel p {
+  color: #62715b;
+  font-size: 17px;
+  line-height: 1.7;
+}
+
+.beemun-wizard-card label,
+.beemun-wizard-card fieldset {
+  display: grid;
+  gap: 10px;
+}
+
+.beemun-wizard-card fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.beemun-wizard-card label span,
+.beemun-wizard-card legend {
+  color: #31452b;
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.beemun-wizard-card input,
+.beemun-wizard-card textarea,
+.beemun-portal-card input,
+.beemun-portal-card textarea {
+  background: #fffaf0;
+  border: 1px solid rgba(92, 75, 45, .22);
+  border-radius: 16px;
+  color: #17281d;
+  outline: none;
+  padding: 14px 15px;
+  width: 100%;
+}
+
+.beemun-wizard-card input:disabled {
+  color: #7b816f;
+}
+
+.beemun-wizard-card textarea,
+.beemun-portal-card textarea {
+  line-height: 1.58;
+  resize: vertical;
+}
+
+.beemun-wizard-card input:focus,
+.beemun-wizard-card textarea:focus,
+.beemun-portal-card input:focus,
+.beemun-portal-card textarea:focus {
+  border-color: rgba(49, 69, 43, .48);
+  box-shadow: 0 0 0 3px rgba(174, 189, 148, .28);
+}
+
+.beemun-wizard-panel {
+  background: #f8f2e6;
+  border: 1px solid rgba(49, 69, 43, .12);
+  border-radius: 26px;
+  display: grid;
+  gap: 16px;
+  padding: clamp(22px, 4vw, 36px);
+}
+
+.beemun-wizard-panel h3 {
+  color: #17281d;
+  font-size: clamp(26px, 3vw, 38px);
+  font-weight: 950;
+  line-height: 1.05;
+}
+
+.beemun-lock-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.beemun-lock-strip span {
+  background: #17281d;
+  border-radius: 999px;
+  color: #fffaf0;
+  font-size: 12px;
+  font-weight: 950;
+  padding: 10px 13px;
+}
+
+.beemun-review-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.beemun-review-grid article {
+  background: #f8f2e6;
+  border: 1px solid rgba(49, 69, 43, .12);
+  border-radius: 20px;
+  display: grid;
+  gap: 8px;
+  padding: 18px;
+}
+
+.beemun-review-grid article.wide {
+  grid-column: 1 / -1;
+}
+
+.beemun-review-grid span {
+  color: #6f7b66;
+  font-size: 12px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.beemun-review-grid strong,
+.beemun-review-grid p {
+  color: #17281d;
+  line-height: 1.6;
+}
+
+.beemun-wizard-actions {
+  align-items: center;
+  border-top: 1px solid rgba(92, 75, 45, .14);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding-top: 22px;
+}
+
+.beemun-wizard-actions button:first-child,
+.beemun-mini-list button {
+  background: #f4eddd;
+  border: 1px solid rgba(49, 69, 43, .14);
+  border-radius: 999px;
+  color: #31452b;
+  font-weight: 950;
+  padding: 12px 16px;
+}
+
+.beemun-wizard-actions button:disabled {
+  cursor: not-allowed;
+  opacity: .45;
+}
+
+.beemun-portal-shell {
+  display: grid;
+  gap: 22px;
+}
+
+.beemun-portal-status-card {
+  align-items: center;
+  background:
+    radial-gradient(circle at 90% 8%, rgba(174, 189, 148, .32), transparent 28%),
+    #17281d;
+  color: #fffaf0;
+  display: grid;
+  gap: 24px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: clamp(26px, 5vw, 54px);
+}
+
+.beemun-portal-status-card.unlocked {
+  background:
+    radial-gradient(circle at 90% 8%, rgba(255, 250, 240, .24), transparent 30%),
+    linear-gradient(135deg, #31452b, #637a4b);
+}
+
+.beemun-portal-status-card .beemun-eyebrow {
+  color: #dbe5c2;
+}
+
+.beemun-portal-status-card h1 {
+  color: #fffaf0;
+  font-size: clamp(34px, 5vw, 68px);
+  font-weight: 950;
+  line-height: .98;
+  margin: 8px 0 14px;
+  max-width: 820px;
+}
+
+.beemun-portal-status-card p:not(.beemun-eyebrow) {
+  color: #e5dcc8;
+  font-size: clamp(17px, 1.8vw, 21px);
+  line-height: 1.72;
+  max-width: 720px;
+}
+
+.beemun-lock-visual {
+  align-items: center;
+  aspect-ratio: 1;
+  border: 1px solid rgba(255, 250, 240, .28);
+  border-radius: 999px;
+  display: grid;
+  justify-items: center;
+  min-width: 170px;
+  padding: 24px;
+}
+
+.beemun-lock-visual span {
+  color: #dbe5c2;
+  font-size: 11px;
+  font-weight: 950;
+  letter-spacing: .12em;
+}
+
+.beemun-lock-visual strong {
+  color: #fffaf0;
+  font-size: 28px;
+  font-weight: 950;
+}
+
+.beemun-portal-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.beemun-portal-card,
+.beemun-portal-empty {
+  display: grid;
+  gap: 16px;
+  padding: clamp(22px, 3vw, 32px);
+}
+
+.beemun-portal-card-wide {
+  grid-column: 1 / -1;
+}
+
+.beemun-portal-card-head {
+  align-items: start;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+}
+
+.beemun-portal-card-head span {
+  background: #f4eddd;
+  border-radius: 999px;
+  color: #31452b;
+  font-size: 12px;
+  font-weight: 950;
+  padding: 9px 12px;
+  text-transform: capitalize;
+}
+
+.beemun-portal-card h2,
+.beemun-portal-empty h1 {
+  color: #17281d;
+  font-size: clamp(24px, 2.6vw, 36px);
+  font-weight: 950;
+  line-height: 1.08;
+}
+
+.beemun-portal-card p,
+.beemun-portal-empty p {
+  color: #62715b;
+  line-height: 1.7;
+}
+
+.beemun-review-timeline {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.beemun-review-timeline li {
+  align-content: start;
+  grid-template-columns: 1fr;
+}
+
+.beemun-review-timeline li.locked {
+  opacity: .68;
+}
+
+.beemun-summary-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+}
+
+.beemun-summary-list div,
+.beemun-mini-list > div,
+.beemun-mini-list > p {
+  background: #f8f2e6;
+  border: 1px solid rgba(49, 69, 43, .1);
+  border-radius: 16px;
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding: 14px;
+}
+
+.beemun-summary-list dt,
+.beemun-mini-list span {
+  color: #6f7b66;
+  font-size: 12px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.beemun-summary-list dd,
+.beemun-mini-list strong {
+  color: #17281d;
+  font-weight: 900;
+  margin: 0;
+}
+
+.beemun-mini-list {
+  display: grid;
+  gap: 10px;
+}
+
+.beemun-portal-card form {
+  display: grid;
+  gap: 10px;
+}
+
+.beemun-disabled-cta {
+  background: #e7ddc9;
+  border: 0;
+  border-radius: 999px;
+  color: #6f6657;
+  cursor: not-allowed;
+  font-weight: 950;
+  justify-self: start;
+  padding: 13px 18px;
+}
+
 .beemun-application-form,
 .beemun-application-success {
   background: #fffdf6;
@@ -154,6 +685,39 @@
 }
 
 @media (max-width: 760px) {
+  .beemun-maker-landing-cta::after {
+    position: static;
+    justify-self: start;
+    order: -1;
+  }
+
+  .beemun-onboarding-shell,
+  .beemun-portal-status-card,
+  .beemun-portal-grid,
+  .beemun-review-grid,
+  .beemun-review-timeline {
+    grid-template-columns: 1fr;
+  }
+
+  .beemun-onboarding-sidebar {
+    position: static;
+  }
+
+  .beemun-lock-visual {
+    min-width: 136px;
+  }
+
+  .beemun-wizard-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .beemun-wizard-actions .beemun-btn-primary,
+  .beemun-wizard-actions button:first-child {
+    justify-content: center;
+    width: 100%;
+  }
+
   .beemun-form-grid {
     grid-template-columns: 1fr;
   }
