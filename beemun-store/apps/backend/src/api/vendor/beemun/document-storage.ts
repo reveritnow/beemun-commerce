@@ -8,7 +8,7 @@ export type DocumentUploadPayload = {
 }
 
 export const MAX_DOCUMENT_BYTES = 2 * 1024 * 1024
-export const MAX_TOTAL_DOCUMENT_BYTES = 4 * 1024 * 1024
+export const MAX_TOTAL_DOCUMENT_BYTES = 3 * 1024 * 1024
 export const ACCEPTED_DOCUMENT_TYPES = [
   "application/pdf",
   "image/jpeg",
@@ -124,7 +124,7 @@ export const validateTotalDocumentUploadSize = (documents: unknown[]) => {
 
   if (total > MAX_TOTAL_DOCUMENT_BYTES) {
     throw new DocumentUploadError(
-      "Uploaded documents are too large together. Please keep total uploads under 4 MB.",
+      "Uploaded documents are too large together. Please keep total uploads under 3 MB.",
       400,
       "documents_too_large"
     )
