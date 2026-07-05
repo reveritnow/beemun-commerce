@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { FormEvent, useEffect, useMemo, useState } from "react"
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react"
 
 type Vendor = {
   id: string
@@ -118,6 +118,14 @@ const documentStatus = (status?: string | null) => {
   return "Missing"
 }
 
+const documentStatusTone = (status?: string | null) => {
+  if (status === "approved") return "verified"
+  if (status === "needs_changes") return "action"
+  if (status === "rejected") return "rejected"
+  if (status === "submitted") return "submitted"
+  return "missing"
+}
+
 const MAX_DOCUMENT_BYTES = 2 * 1024 * 1024
 const ACCEPTED_DOCUMENT_TYPES = [
   "application/pdf",
@@ -129,6 +137,7 @@ const ACCEPTED_DOCUMENT_TYPES = [
 const messageText = (item: Record<string, any>) => item.body || item.text || ""
 const documentFileLabel = (document: Record<string, any>) => {
   return (
+    document.file?.original_filename ||
     document.metadata?.original_filename ||
     document.metadata?.file_name ||
     document.file_name ||
@@ -137,7 +146,7 @@ const documentFileLabel = (document: Record<string, any>) => {
 }
 
 const hasStoredFile = (document: Record<string, any>) =>
-  Boolean(document.file_url && document.metadata?.storage_status === "stored")
+  Boolean(document.file || document.metadata?.storage_status === "stored")
 
 export default function MakerPortalClient({
   countryCode,
@@ -154,6 +163,7 @@ export default function MakerPortalClient({
   const [documentSubmitting, setDocumentSubmitting] = useState(false)
   const [messageSubmitting, setMessageSubmitting] = useState(false)
   const [taskSubmitting, setTaskSubmitting] = useState<string | null>(null)
+  const messageThreadRef = useRef<HTMLDivElement | null>(null)
 
   const vendor = data?.vendor
   const metadata = vendor?.metadata || {}
@@ -175,6 +185,12 @@ export default function MakerPortalClient({
     (document) => document.metadata?.required === true && !hasStoredFile(document)
   )
   const latestMessage = messages[messages.length - 1]
+
+  useEffect(() => {
+    if (activeTab === "messages" && messageThreadRef.current) {
+      messageThreadRef.current.scrollTop = messageThreadRef.current.scrollHeight
+    }
+  }, [activeTab, messages.length])
 
   const documentPayloadFromFile = (file: File) => {
     return new Promise<{
@@ -539,12 +555,19 @@ export default function MakerPortalClient({
                   <strong>{document.title}</strong>
                   <p>
                     {hasStoredFile(document)
-                      ? `${documentFileLabel(document)} / ${document.metadata?.mime_type || "File"} / ${formatSize(document.metadata?.file_size)}`
+                      ? `${documentFileLabel(document)} / ${document.file?.mime_type || document.metadata?.mime_type || "File"} / ${formatSize(document.file?.file_size || document.metadata?.file_size)}`
+                      : document.status === "needs_changes"
+                      ? "BEEMUN requested a replacement."
                       : "No uploaded file yet."}
+                  </p>
+                  <p>
+                    {document.metadata?.required ? "Required" : "Optional"} / Uploaded {formatDate(document.file?.created_at || document.updated_at)}
                   </p>
                 </div>
                 <div>
-                  <span>{documentStatus(document.status)}</span>
+                  <span className={`beemun-document-status ${documentStatusTone(document.status)}`}>
+                    {documentStatus(document.status)}
+                  </span>
                   {hasStoredFile(document) && (
                     <a
                       className="beemun-btn-secondary"
@@ -634,6 +657,7 @@ export default function MakerPortalClient({
                 <span>{task.status === "completed" ? "Completed" : "Requested"}</span>
                 <strong>{task.title}</strong>
                 <p>{task.description || "No extra detail provided."}</p>
+                <p>Requested {formatDate(task.created_at)}</p>
               </div>
               {task.status !== "completed" && (
                 <button
@@ -659,7 +683,7 @@ export default function MakerPortalClient({
       <p className="beemun-eyebrow">Messages</p>
       <h2>Review conversation</h2>
       {messages.length ? (
-        <div className="beemun-message-thread">
+        <div className="beemun-message-thread" ref={messageThreadRef}>
           {messages.map((item) => {
             const isApplicant = item.author_type === "applicant"
             return (
@@ -667,7 +691,7 @@ export default function MakerPortalClient({
                 className={isApplicant ? "beemun-message-bubble maker" : "beemun-message-bubble admin"}
                 key={item.id}
               >
-                <span>{isApplicant ? "You" : "BEEMUN Review"}</span>
+                <span>{isApplicant ? "You" : "BEEMUN Review"} / {formatDate(item.created_at)}</span>
                 <p>{messageText(item)}</p>
               </div>
             )

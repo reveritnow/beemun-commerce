@@ -24,11 +24,12 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
   }
 
   const buffer = Buffer.from(stored.file.content_base64, "base64")
+  const disposition = req.query.download ? "attachment" : "inline"
 
   res.setHeader("Content-Type", stored.file.mime_type)
   res.setHeader(
     "Content-Disposition",
-    `inline; filename="${safeFilename(stored.file.original_filename)}"`
+    `${disposition}; filename="${safeFilename(stored.file.original_filename)}"`
   )
   res.setHeader("Content-Length", String(buffer.length))
   res.status(200).send(buffer)

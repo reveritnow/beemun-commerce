@@ -832,6 +832,37 @@
   justify-items: end;
 }
 
+.beemun-document-status {
+  border: 1px solid rgba(49, 69, 43, .14);
+  border-radius: 999px;
+  padding: 7px 10px;
+}
+
+.beemun-document-status.verified {
+  background: #e6f1df;
+  color: #2f5c35;
+}
+
+.beemun-document-status.submitted {
+  background: #eaf0df;
+  color: #52642f;
+}
+
+.beemun-document-status.action {
+  background: #fff0c7;
+  color: #7d5c12;
+}
+
+.beemun-document-status.rejected {
+  background: #f8ded7;
+  color: #8b2f1d;
+}
+
+.beemun-document-status.missing {
+  background: #f4eddd;
+  color: #6f6657;
+}
+
 .beemun-message-thread {
   max-height: 520px;
   overflow: auto;

@@ -5,16 +5,56 @@ const enrichVendor = async (
   marketplace: Record<string, any>,
   vendor: Record<string, any>
 ) => {
-  const [documents, reviewEvents, tasks, messages] = await Promise.all([
+  const [documents, documentFiles, reviewEvents, tasks, messages] = await Promise.all([
     marketplace.listVendorDocuments({ vendor_id: vendor.id }),
+    marketplace.listVendorDocumentFiles({ vendor_id: vendor.id }),
     marketplace.listVendorReviewEvents({ vendor_id: vendor.id }),
     marketplace.listVendorApplicationTasks({ vendor_id: vendor.id }),
     marketplace.listVendorApplicationMessages({ vendor_id: vendor.id }),
   ])
+  const filesByDocument = new Map<string, Record<string, any>>(
+    documentFiles.map((file: Record<string, any>) => [file.document_id, file])
+  )
+  const safeFile = (file: Record<string, any> | null) => {
+    if (!file) {
+      return null
+    }
+
+    return {
+      id: file.id,
+      document_id: file.document_id,
+      vendor_id: file.vendor_id,
+      storage_provider: file.storage_provider,
+      storage_key: file.storage_key,
+      original_filename: file.original_filename,
+      mime_type: file.mime_type,
+      file_size: file.file_size,
+      created_at: file.created_at,
+      updated_at: file.updated_at,
+    }
+  }
+  const enrichedDocuments = documents.map((document: Record<string, any>) => {
+    const file = filesByDocument.get(document.id) || null
+
+    return {
+      ...document,
+      file: safeFile(file),
+      metadata: {
+        ...(document.metadata || {}),
+        original_filename:
+          file?.original_filename || document.metadata?.original_filename || null,
+        mime_type: file?.mime_type || document.metadata?.mime_type || null,
+        file_size: file?.file_size || document.metadata?.file_size || null,
+        storage_provider:
+          file?.storage_provider || document.metadata?.storage_provider || null,
+        storage_status: file ? "stored" : document.metadata?.storage_status || "missing",
+      },
+    }
+  })
 
   return {
     ...vendor,
-    documents,
+    documents: enrichedDocuments,
     review_events: reviewEvents,
     application_tasks: tasks,
     application_messages: messages,
