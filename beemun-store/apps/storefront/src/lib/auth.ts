@@ -30,6 +30,15 @@ export const auth = betterAuth({
   baseURL,
   secret: authSecret || "beemun-development-auth-secret-change-me",
   database: pool as any,
+  user: {
+    modelName: "beemun_auth_user",
+  },
+  account: {
+    modelName: "beemun_auth_account",
+  },
+  verification: {
+    modelName: "beemun_auth_verification",
+  },
   trustedOrigins: [
     baseURL,
     process.env.NEXT_PUBLIC_STOREFRONT_URL,
@@ -59,6 +68,7 @@ export const auth = betterAuth({
         : undefined,
   },
   session: {
+    modelName: "beemun_auth_session",
     cookieCache: {
       enabled: true,
       maxAge: 5 * 60,
