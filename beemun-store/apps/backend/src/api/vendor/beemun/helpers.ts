@@ -1,6 +1,13 @@
 import { MedusaRequest } from "@medusajs/framework/http"
 import { ModuleRegistrationName } from "@medusajs/framework/utils"
 import { BEEMUN_MARKETPLACE_MODULE } from "../../../modules/marketplace"
+import {
+  documentHasUpload,
+  metadataForUpload,
+  storeDocumentUpload,
+  uploadFromDocument,
+  validateTotalDocumentUploadSize,
+} from "./document-storage"
 
 type MarketplaceService = Record<string, any>
 
@@ -282,6 +289,7 @@ const validateRequiredDocumentReadiness = (
   const providedTypes = new Set(
     documents
       .filter((item) => item && typeof item === "object")
+      .filter((item) => documentHasUpload(item as Record<string, any>))
       .map((item) => nullableString((item as Record<string, unknown>).document_type))
       .filter(Boolean) as string[]
   )
@@ -290,7 +298,7 @@ const validateRequiredDocumentReadiness = (
 
   if (missing.length) {
     throw new OnboardingError(
-      `Please confirm these required documents should be requested during review: ${missing.join(", ")}.`,
+      `Please upload these required documents before submitting: ${missing.join(", ")}.`,
       400,
       "missing_required_documents"
     )
@@ -355,6 +363,20 @@ const resolveUniqueVendorHandle = async (
 export const onboardingErrorFromUnknown = (error: unknown) => {
   if (error instanceof OnboardingError) {
     return error
+  }
+
+  if (
+    error &&
+    typeof error === "object" &&
+    "status" in error &&
+    "code" in error &&
+    error instanceof Error
+  ) {
+    return new OnboardingError(
+      error.message,
+      Number((error as any).status) || 400,
+      String((error as any).code || "onboarding_error")
+    )
   }
 
   const message = error instanceof Error ? error.message : String(error || "")
@@ -461,6 +483,7 @@ export const createVendorFromOnboarding = async (req: MedusaRequest) => {
   const metadata = metadataObject(body.metadata)
   const documents = Array.isArray(body.documents) ? body.documents : []
   validateRequiredDocumentReadiness(metadata, body, documents)
+  validateTotalDocumentUploadSize(documents)
 
   const vendor = await marketplace.createVendors({
     name: body.name.trim(),
@@ -525,23 +548,34 @@ export const createVendorFromOnboarding = async (req: MedusaRequest) => {
       const document = item as Record<string, any>
       const title = nullableString(document.title)
       const documentType = nullableString(document.document_type)
+      const upload = uploadFromDocument(document)
 
       if (!title || !documentType) {
         continue
       }
 
-      await marketplace.createVendorDocuments({
+      const vendorDocument = await marketplace.createVendorDocuments({
         vendor_id: vendor.id,
         document_type: documentType,
         title,
-        file_url: nullableString(document.file_url),
-        status: document.file_url ? "submitted" : "draft",
+        file_url: upload ? `beemun-document://pending` : nullableString(document.file_url),
+        status: upload || document.file_url ? "submitted" : "draft",
         metadata: {
           source: "maker_application",
-          storage_status: document.file_url ? "stored" : "will_be_requested",
+          ...metadataForUpload(upload, {
+            applicant_note: nullableString(document.note),
+            required: document.required === true,
+          }),
           applicant_note: nullableString(document.note),
           required: document.required === true,
         },
+      })
+
+      await storeDocumentUpload({
+        marketplace,
+        document: vendorDocument,
+        upload,
+        source: "maker_application",
       })
     } catch (error) {
       documentErrors.push(readErrorMessage(error))

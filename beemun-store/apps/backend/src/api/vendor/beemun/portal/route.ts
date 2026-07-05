@@ -1,5 +1,11 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { marketplaceServiceOf } from "../helpers"
+import {
+  DocumentUploadError,
+  metadataForUpload,
+  storeDocumentUpload,
+  uploadFromDocument,
+} from "../document-storage"
 
 const activeStatuses = [
   "draft",
@@ -137,6 +143,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
   }
 
   if (action === "document") {
+    let upload: ReturnType<typeof uploadFromDocument>
     const title = String(body.title || "").trim()
 
     if (!title) {
@@ -144,17 +151,43 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       return
     }
 
+    try {
+      upload = uploadFromDocument(body)
+    } catch (error) {
+      if (error instanceof DocumentUploadError) {
+        res.status(error.status).json({ message: error.message, code: error.code })
+        return
+      }
+
+      throw error
+    }
+
+    if (!upload) {
+      res.status(400).json({ message: "Please choose a document file to upload." })
+      return
+    }
+
     const document = await marketplace.createVendorDocuments({
       vendor_id: vendor.id,
       document_type: body.document_type || "application",
       title,
-      file_url: body.file_url || null,
-      status: body.file_url ? "submitted" : "draft",
+      file_url: "beemun-document://pending",
+      status: "submitted",
       metadata: {
         source: "maker_application_portal",
-        storage_status: body.file_url ? "stored" : "upload_pending",
+        ...metadataForUpload(upload, {
+          applicant_note: body.note || null,
+          required: body.required === true,
+        }),
         applicant_note: body.note || null,
       },
+    })
+
+    await storeDocumentUpload({
+      marketplace,
+      document,
+      upload,
+      source: "maker_application_portal",
     })
 
     res.status(201).json({ document })
