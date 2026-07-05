@@ -1,13 +1,36 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { marketplaceServiceOf } from "../marketplace/helpers"
 
+const enrichVendor = async (
+  marketplace: Record<string, any>,
+  vendor: Record<string, any>
+) => {
+  const [documents, reviewEvents, tasks, messages] = await Promise.all([
+    marketplace.listVendorDocuments({ vendor_id: vendor.id }),
+    marketplace.listVendorReviewEvents({ vendor_id: vendor.id }),
+    marketplace.listVendorApplicationTasks({ vendor_id: vendor.id }),
+    marketplace.listVendorApplicationMessages({ vendor_id: vendor.id }),
+  ])
+
+  return {
+    ...vendor,
+    documents,
+    review_events: reviewEvents,
+    application_tasks: tasks,
+    application_messages: messages,
+  }
+}
+
 export async function GET(req: MedusaRequest, res: MedusaResponse) {
   const marketplace = marketplaceServiceOf(req)
   const status = req.query.status as string | undefined
   const filters = status ? { status } : {}
   const vendors = await marketplace.listVendors(filters)
+  const enriched = await Promise.all(
+    vendors.map((vendor: Record<string, any>) => enrichVendor(marketplace, vendor))
+  )
 
-  res.json({ vendors })
+  res.json({ vendors: enriched })
 }
 
 export async function POST(req: MedusaRequest, res: MedusaResponse) {

@@ -150,7 +150,7 @@ const metadataObject = (value: unknown) => {
 
 const normalizeCountryCode = (value?: unknown) => {
   if (!value) {
-    return null
+    return "IN"
   }
 
   if (typeof value !== "string") {
@@ -168,17 +168,27 @@ const normalizeCountryCode = (value?: unknown) => {
   }
 
   if (/^[a-z]{2}$/i.test(country)) {
-    return country.toLowerCase()
+    const code = country.toLowerCase()
+
+    if (code !== "in") {
+      throw new OnboardingError(
+        "BEEMUN maker applications are currently open for India only.",
+        400,
+        "unsupported_country"
+      )
+    }
+
+    return "IN"
   }
 
-  if (/^[a-z\s.'-]{3,80}$/i.test(country)) {
-    return null
+  if (country.toLowerCase() === "india") {
+    return "IN"
   }
 
   throw new OnboardingError(
-    "Please enter a valid country name or two-letter country code.",
+    "BEEMUN maker applications are currently open for India only.",
     400,
-    "invalid_country"
+    "unsupported_country"
   )
 }
 
@@ -204,6 +214,14 @@ const validateOnboardingBody = (body: RequestBody) => {
       "Maker handle must be text.",
       400,
       "invalid_handle"
+    )
+  }
+
+  if (body.agreement_accepted !== true) {
+    throw new OnboardingError(
+      "Please accept the BEEMUN Maker Application Terms before submitting.",
+      400,
+      "agreement_required"
     )
   }
 }
@@ -353,9 +371,10 @@ export const createVendorFromOnboarding = async (req: MedusaRequest) => {
   const handle = await resolveUniqueVendorHandle(marketplace, body)
   const shouldSubmit = body.submit === true || body.status === "submitted"
   const timestamp = shouldSubmit ? now() : null
-  const applicationCountry = nullableString(body.country_code)
+  const applicationCountry = "India"
   const countryCode = normalizeCountryCode(body.country_code)
   const metadata = metadataObject(body.metadata)
+  const documents = Array.isArray(body.documents) ? body.documents : []
 
   const vendor = await marketplace.createVendors({
     name: body.name.trim(),
@@ -372,6 +391,12 @@ export const createVendorFromOnboarding = async (req: MedusaRequest) => {
     metadata: {
       ...metadata,
       application_country: applicationCountry,
+      country_name: "India",
+      agreement_accepted: true,
+      agreement_accepted_at:
+        nullableString(body.agreement_accepted_at) || now().toISOString(),
+      agreement_version:
+        nullableString(body.agreement_version) || "maker-application-v1",
       requested_handle: body.handle || null,
     },
   })
@@ -402,6 +427,34 @@ export const createVendorFromOnboarding = async (req: MedusaRequest) => {
     notes: nullableString(body.notes),
     metadata: body.event_metadata ? metadataObject(body.event_metadata) : null,
   })
+
+  for (const item of documents) {
+    if (!item || typeof item !== "object") {
+      continue
+    }
+
+    const document = item as Record<string, any>
+    const title = nullableString(document.title)
+    const documentType = nullableString(document.document_type)
+
+    if (!title || !documentType) {
+      continue
+    }
+
+    await marketplace.createVendorDocuments({
+      vendor_id: vendor.id,
+      document_type: documentType,
+      title,
+      file_url: nullableString(document.file_url),
+      status: document.file_url ? "submitted" : "draft",
+      metadata: {
+        source: "maker_application",
+        storage_status: document.file_url ? "stored" : "upload_pending",
+        applicant_note: nullableString(document.note),
+        required: document.required === true,
+      },
+    })
+  }
 
   return { vendor, member }
 }

@@ -277,6 +277,7 @@
 }
 
 .beemun-wizard-card input,
+.beemun-wizard-card select,
 .beemun-wizard-card textarea,
 .beemun-portal-card input,
 .beemun-portal-card textarea {
@@ -300,6 +301,7 @@
 }
 
 .beemun-wizard-card input:focus,
+.beemun-wizard-card select:focus,
 .beemun-wizard-card textarea:focus,
 .beemun-portal-card input:focus,
 .beemun-portal-card textarea:focus {
@@ -336,6 +338,51 @@
   font-size: 12px;
   font-weight: 950;
   padding: 10px 13px;
+}
+
+.beemun-document-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.beemun-document-grid article {
+  background: #fffdf6;
+  border: 1px solid rgba(49, 69, 43, .12);
+  border-radius: 20px;
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+
+.beemun-inline-check {
+  align-items: center;
+  display: flex !important;
+  gap: 10px;
+}
+
+.beemun-inline-check input {
+  accent-color: #31452b;
+  flex: 0 0 auto;
+  width: auto;
+}
+
+.beemun-agreement-box {
+  background: #fffdf6;
+  border: 1px solid rgba(49, 69, 43, .14);
+  border-radius: 20px;
+  display: grid;
+  gap: 12px;
+  max-height: 260px;
+  overflow: auto;
+  padding: 18px;
+}
+
+.beemun-agreement-box p {
+  color: #52644d;
+  font-size: 15px;
+  line-height: 1.65;
+  margin: 0;
 }
 
 .beemun-review-grid {
@@ -694,6 +741,7 @@
   .beemun-onboarding-shell,
   .beemun-portal-status-card,
   .beemun-portal-grid,
+  .beemun-document-grid,
   .beemun-review-grid,
   .beemun-review-timeline {
     grid-template-columns: 1fr;
