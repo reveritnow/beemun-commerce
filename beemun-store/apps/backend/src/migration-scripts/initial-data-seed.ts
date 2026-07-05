@@ -36,6 +36,29 @@ type CollectionTitle =
 const productImage = (id: string) =>
   `https://images.unsplash.com/${id}?auto=format&fit=crop&w=1400&q=80`;
 
+const isExistingDataError = (error: unknown) => {
+  const message = error instanceof Error ? error.message : String(error || "");
+
+  return /already|duplicate|unique|exists/i.test(message);
+};
+
+const runIfNotExisting = async (
+  label: string,
+  logger: Record<string, any>,
+  action: () => Promise<unknown>
+) => {
+  try {
+    await action();
+  } catch (error) {
+    if (isExistingDataError(error)) {
+      logger.info(`${label} already exists. Skipping.`);
+      return;
+    }
+
+    throw error;
+  }
+};
+
 const priceSet = (gbp: number, usd: number) => [
   {
     amount: gbp,
@@ -55,120 +78,243 @@ export default async function initial_data_seed({
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER);
   const link = container.resolve(ContainerRegistrationKeys.LINK);
   const query = container.resolve(ContainerRegistrationKeys.QUERY);
+  const apiKeyModuleService = container.resolve(Modules.API_KEY) as any;
   const fulfillmentModuleService = container.resolve(
     ModuleRegistrationName.FULFILLMENT
-  );
+  ) as any;
+  const inventoryModuleService = container.resolve(Modules.INVENTORY) as any;
+  const productModuleService = container.resolve(Modules.PRODUCT) as any;
+  const regionModuleService = container.resolve(Modules.REGION) as any;
+  const salesChannelModuleService = container.resolve(
+    Modules.SALES_CHANNEL
+  ) as any;
+  const stockLocationModuleService = container.resolve(
+    Modules.STOCK_LOCATION
+  ) as any;
+  const storeModuleService = container.resolve(Modules.STORE) as any;
+  const taxModuleService = container.resolve(Modules.TAX) as any;
 
   const countries = ["gb"];
 
   logger.info("Seeding BEEMUN store data...");
-  const {
-    result: [defaultSalesChannel],
-  } = await createSalesChannelsWorkflow(container).run({
-    input: {
-      salesChannelsData: [
-        {
-          name: "BEEMUN Marketplace",
-          description: "BEEMUN curated ZPS 100 storefront",
-        },
-      ],
-    },
+  let defaultSalesChannel = (
+    await salesChannelModuleService.listSalesChannels({
+      name: "BEEMUN Marketplace",
+    })
+  )[0];
+
+  if (!defaultSalesChannel) {
+    const {
+      result: [createdSalesChannel],
+    } = await createSalesChannelsWorkflow(container).run({
+      input: {
+        salesChannelsData: [
+          {
+            name: "BEEMUN Marketplace",
+            description: "BEEMUN curated ZPS 100 storefront",
+          },
+        ],
+      },
+    });
+
+    defaultSalesChannel = createdSalesChannel;
+  } else {
+    logger.info("BEEMUN sales channel already exists. Reusing it.");
+  }
+
+  let publishableApiKey = (
+    await apiKeyModuleService.listApiKeys({
+      title: "BEEMUN Storefront Publishable Key",
+    })
+  )[0];
+
+  if (!publishableApiKey) {
+    const {
+      result: [createdApiKey],
+    } = await createApiKeysWorkflow(container).run({
+      input: {
+        api_keys: [
+          {
+            title: "BEEMUN Storefront Publishable Key",
+            type: "publishable",
+            created_by: "",
+          },
+        ],
+      },
+    });
+
+    publishableApiKey = createdApiKey;
+  } else {
+    logger.info("BEEMUN publishable API key already exists. Reusing it.");
+  }
+
+  await runIfNotExisting("Publishable API key sales channel link", logger, () =>
+    linkSalesChannelsToApiKeyWorkflow(container).run({
+      input: {
+        id: publishableApiKey.id,
+        add: [defaultSalesChannel.id],
+      },
+    })
+  );
+
+  const existingStores = await storeModuleService.listStores({
+    name: "BEEMUN",
   });
 
-  const {
-    result: [publishableApiKey],
-  } = await createApiKeysWorkflow(container).run({
-    input: {
-      api_keys: [
-        {
-          title: "BEEMUN Storefront Publishable Key",
-          type: "publishable",
-          created_by: "",
-        },
-      ],
-    },
-  });
-
-  await linkSalesChannelsToApiKeyWorkflow(container).run({
-    input: {
-      id: publishableApiKey.id,
-      add: [defaultSalesChannel.id],
-    },
-  });
-
-  await createStoresWorkflow(container).run({
-    input: {
-      stores: [
-        {
-          name: "BEEMUN",
-          supported_currencies: [
-            {
-              currency_code: "gbp",
-              is_default: true,
-            },
-            {
-              currency_code: "usd",
-              is_default: false,
-            },
-          ],
-          default_sales_channel_id: defaultSalesChannel.id,
-        },
-      ],
-    },
-  });
+  if (!existingStores.length) {
+    await createStoresWorkflow(container).run({
+      input: {
+        stores: [
+          {
+            name: "BEEMUN",
+            supported_currencies: [
+              {
+                currency_code: "gbp",
+                is_default: true,
+              },
+              {
+                currency_code: "usd",
+                is_default: false,
+              },
+            ],
+            default_sales_channel_id: defaultSalesChannel.id,
+          },
+        ],
+      },
+    });
+  } else {
+    logger.info("BEEMUN store already exists. Skipping store creation.");
+  }
 
   logger.info("Seeding BEEMUN region data...");
-  const { result: regionResult } = await createRegionsWorkflow(container).run({
-    input: {
-      regions: [
-        {
-          name: "BEEMUN UK Launch",
-          currency_code: "gbp",
-          countries,
-          payment_providers: ["pp_system_default"],
+  let region = (
+    await regionModuleService.listRegions(
+      {
+        name: "BEEMUN UK Launch",
+      },
+      {
+        relations: ["countries"],
+      }
+    )
+  )[0];
+
+  if (!region) {
+    const regions = await regionModuleService.listRegions(
+      {},
+      {
+        relations: ["countries"],
+      }
+    );
+
+    region = regions.find((item: any) =>
+      item.countries?.some((country: any) => country.iso_2 === "gb")
+    );
+  }
+
+  if (!region) {
+    try {
+      const { result: regionResult } = await createRegionsWorkflow(container).run({
+        input: {
+          regions: [
+            {
+              name: "BEEMUN UK Launch",
+              currency_code: "gbp",
+              countries,
+              payment_providers: ["pp_system_default"],
+            },
+          ],
         },
-      ],
-    },
-  });
-  const region = regionResult[0];
+      });
+      region = regionResult[0];
+    } catch (error) {
+      if (!isExistingDataError(error)) {
+        throw error;
+      }
+
+      const regions = await regionModuleService.listRegions(
+        {},
+        {
+          relations: ["countries"],
+        }
+      );
+
+      region = regions.find((item: any) =>
+        item.countries?.some((country: any) => country.iso_2 === "gb")
+      );
+
+      if (!region) {
+        throw error;
+      }
+
+      logger.info("GB country is already assigned to an existing region. Reusing it.");
+    }
+  } else {
+    logger.info("BEEMUN GB region already exists. Reusing it.");
+  }
   logger.info("Finished seeding BEEMUN regions.");
 
   logger.info("Seeding tax regions...");
-  await createTaxRegionsWorkflow(container).run({
-    input: countries.map((country_code) => ({
-      country_code,
-      provider_id: "tp_system",
-    })),
+  const existingTaxRegions = await taxModuleService.listTaxRegions({
+    country_code: countries,
   });
+  const existingTaxCountries = new Set(
+    existingTaxRegions.map((taxRegion: any) => taxRegion.country_code)
+  );
+  const missingTaxCountries = countries.filter(
+    (countryCode) => !existingTaxCountries.has(countryCode)
+  );
+
+  if (missingTaxCountries.length) {
+    await createTaxRegionsWorkflow(container).run({
+      input: missingTaxCountries.map((country_code) => ({
+        country_code,
+        provider_id: "tp_system",
+      })),
+    });
+  } else {
+    logger.info("BEEMUN tax regions already exist. Skipping tax region creation.");
+  }
   logger.info("Finished seeding tax regions.");
 
   logger.info("Seeding stock location data...");
-  const { result: stockLocationResult } = await createStockLocationsWorkflow(
-    container
-  ).run({
-    input: {
-      locations: [
-        {
-          name: "BEEMUN Launch Warehouse",
-          address: {
-            city: "London",
-            country_code: "GB",
-            address_1: "",
-          },
-        },
-      ],
-    },
-  });
-  const stockLocation = stockLocationResult[0];
+  let stockLocation = (
+    await stockLocationModuleService.listStockLocations({
+      name: "BEEMUN Launch Warehouse",
+    })
+  )[0];
 
-  await link.create({
-    [Modules.STOCK_LOCATION]: {
-      stock_location_id: stockLocation.id,
-    },
-    [Modules.FULFILLMENT]: {
-      fulfillment_provider_id: "manual_manual",
-    },
-  });
+  if (!stockLocation) {
+    const { result: stockLocationResult } = await createStockLocationsWorkflow(
+      container
+    ).run({
+      input: {
+        locations: [
+          {
+            name: "BEEMUN Launch Warehouse",
+            address: {
+              city: "London",
+              country_code: "GB",
+              address_1: "",
+            },
+          },
+        ],
+      },
+    });
+    stockLocation = stockLocationResult[0];
+  } else {
+    logger.info("BEEMUN stock location already exists. Reusing it.");
+  }
+
+  await runIfNotExisting("Stock location fulfillment provider link", logger, () =>
+    link.create({
+      [Modules.STOCK_LOCATION]: {
+        stock_location_id: stockLocation.id,
+      },
+      [Modules.FULFILLMENT]: {
+        fulfillment_provider_id: "manual_manual",
+      },
+    })
+  );
 
   logger.info("Seeding fulfillment data...");
   const { data: shippingProfileResult } = await query.graph({
@@ -177,33 +323,49 @@ export default async function initial_data_seed({
   });
   const shippingProfile = shippingProfileResult[0];
 
-  const fulfillmentSet = await fulfillmentModuleService.createFulfillmentSets({
-    name: "BEEMUN reviewed delivery",
-    type: "shipping",
-    service_zones: [
+  let fulfillmentSet = (
+    await fulfillmentModuleService.listFulfillmentSets(
       {
-        name: "United Kingdom",
-        geo_zones: [
-          {
-            country_code: "gb",
-            type: "country",
-          },
-        ],
+        name: "BEEMUN reviewed delivery",
       },
-    ],
-  });
+      {
+        relations: ["service_zones"],
+      }
+    )
+  )[0];
 
-  await link.create({
-    [Modules.STOCK_LOCATION]: {
-      stock_location_id: stockLocation.id,
-    },
-    [Modules.FULFILLMENT]: {
-      fulfillment_set_id: fulfillmentSet.id,
-    },
-  });
+  if (!fulfillmentSet) {
+    fulfillmentSet = await fulfillmentModuleService.createFulfillmentSets({
+      name: "BEEMUN reviewed delivery",
+      type: "shipping",
+      service_zones: [
+        {
+          name: "United Kingdom",
+          geo_zones: [
+            {
+              country_code: "gb",
+              type: "country",
+            },
+          ],
+        },
+      ],
+    });
+  } else {
+    logger.info("BEEMUN fulfillment set already exists. Reusing it.");
+  }
 
-  await createShippingOptionsWorkflow(container).run({
-    input: [
+  await runIfNotExisting("Stock location fulfillment set link", logger, () =>
+    link.create({
+      [Modules.STOCK_LOCATION]: {
+        stock_location_id: stockLocation.id,
+      },
+      [Modules.FULFILLMENT]: {
+        fulfillment_set_id: fulfillmentSet.id,
+      },
+    })
+  );
+
+  const shippingOptions = [
       {
         name: "BEEMUN Standard Delivery",
         price_type: "flat",
@@ -266,73 +428,108 @@ export default async function initial_data_seed({
           },
         ],
       },
-    ],
-  });
+    ];
+  const existingShippingOptions =
+    await fulfillmentModuleService.listShippingOptions({});
+  const existingShippingNames = new Set(
+    existingShippingOptions.map((option: any) => option.name)
+  );
+  const missingShippingOptions = shippingOptions.filter(
+    (option) => !existingShippingNames.has(option.name)
+  );
+
+  if (missingShippingOptions.length) {
+    await createShippingOptionsWorkflow(container).run({
+      input: missingShippingOptions as any,
+    });
+  } else {
+    logger.info("BEEMUN shipping options already exist. Skipping creation.");
+  }
   logger.info("Finished seeding fulfillment data.");
 
-  await linkSalesChannelsToStockLocationWorkflow(container).run({
-    input: {
-      id: stockLocation.id,
-      add: [defaultSalesChannel.id],
-    },
-  });
+  await runIfNotExisting("Sales channel stock location link", logger, () =>
+    linkSalesChannelsToStockLocationWorkflow(container).run({
+      input: {
+        id: stockLocation.id,
+        add: [defaultSalesChannel.id],
+      },
+    })
+  );
   logger.info("Finished seeding stock location data.");
 
   logger.info("Seeding BEEMUN product data...");
 
-  const { result: categoryResult } = await createProductCategoriesWorkflow(
-    container
-  ).run({
-    input: {
-      product_categories: [
-        {
-          name: "Skin & Body",
-          handle: "skin-body",
-          is_active: true,
-        },
-        {
-          name: "Hair Care",
-          handle: "hair-care",
-          is_active: true,
-        },
-        {
-          name: "Oils & Butters",
-          handle: "oils-butters",
-          is_active: true,
-        },
-        {
-          name: "Home Essentials",
-          handle: "home-essentials",
-          is_active: true,
-        },
-      ],
+  const categoryInputs = [
+    {
+      name: "Skin & Body",
+      handle: "skin-body",
+      is_active: true,
     },
+    {
+      name: "Hair Care",
+      handle: "hair-care",
+      is_active: true,
+    },
+    {
+      name: "Oils & Butters",
+      handle: "oils-butters",
+      is_active: true,
+    },
+    {
+      name: "Home Essentials",
+      handle: "home-essentials",
+      is_active: true,
+    },
+  ];
+
+  let categoryResult = await productModuleService.listProductCategories({
+    handle: categoryInputs.map((category) => category.handle),
   });
 
-  const { result: collectionResult } = await createCollectionsWorkflow(
-    container
-  ).run({
-    input: {
-      collections: [
-        {
-          title: "Founder Favorites",
-          handle: "founder-favorites",
-        },
-        {
-          title: "Daily Rituals",
-          handle: "daily-rituals",
-        },
-        {
-          title: "Maker Led",
-          handle: "maker-led",
-        },
-        {
-          title: "Refill Ready",
-          handle: "refill-ready",
-        },
-      ],
+  if (!categoryResult.length) {
+    const { result } = await createProductCategoriesWorkflow(container).run({
+      input: {
+        product_categories: categoryInputs,
+      },
+    });
+    categoryResult = result;
+  } else {
+    logger.info("BEEMUN product categories already exist. Reusing them.");
+  }
+
+  const collectionInputs = [
+    {
+      title: "Founder Favorites",
+      handle: "founder-favorites",
     },
+    {
+      title: "Daily Rituals",
+      handle: "daily-rituals",
+    },
+    {
+      title: "Maker Led",
+      handle: "maker-led",
+    },
+    {
+      title: "Refill Ready",
+      handle: "refill-ready",
+    },
+  ];
+
+  let collectionResult = await productModuleService.listProductCollections({
+    handle: collectionInputs.map((collection) => collection.handle),
   });
+
+  if (!collectionResult.length) {
+    const { result } = await createCollectionsWorkflow(container).run({
+      input: {
+        collections: collectionInputs,
+      },
+    });
+    collectionResult = result;
+  } else {
+    logger.info("BEEMUN product collections already exist. Reusing them.");
+  }
 
   const categoryId = (name: CategoryName) =>
     categoryResult.find((category) => category.name === name)!.id;
@@ -340,9 +537,7 @@ export default async function initial_data_seed({
   const collectionId = (title: CollectionTitle) =>
     collectionResult.find((collection) => collection.title === title)!.id;
 
-  await createProductsWorkflow(container).run({
-    input: {
-      products: [
+  const productInputs = [
         {
           title: "Cold-Pressed Coconut Oil",
           subtitle: "Single-origin multipurpose oil",
@@ -701,9 +896,21 @@ export default async function initial_data_seed({
               "Unopened items may be returned. Used brushes are not returnable for hygiene reasons.",
           },
         },
-      ],
-    },
+      ];
+
+  const existingProducts = await productModuleService.listProducts({
+    handle: productInputs.map((product) => product.handle),
   });
+
+  if (!existingProducts.length) {
+    await createProductsWorkflow(container).run({
+      input: {
+        products: productInputs,
+      },
+    });
+  } else {
+    logger.info("BEEMUN demo products already exist. Skipping product creation.");
+  }
   logger.info("Finished seeding BEEMUN product data.");
 
   logger.info("Seeding inventory levels.");
@@ -713,15 +920,31 @@ export default async function initial_data_seed({
     fields: ["id"],
   });
 
-  await createInventoryLevelsWorkflow(container).run({
-    input: {
-      inventory_levels: inventoryItems.map((item) => ({
+  const inventoryLevels = inventoryItems.map((item) => ({
         location_id: stockLocation.id,
         stocked_quantity: 1000000,
         inventory_item_id: item.id,
-      })),
-    },
+      }));
+  const existingInventoryLevels = await inventoryModuleService.listInventoryLevels({
+    location_id: stockLocation.id,
+    inventory_item_id: inventoryItems.map((item) => item.id),
   });
+  const existingInventoryItemIds = new Set(
+    existingInventoryLevels.map((level: any) => level.inventory_item_id)
+  );
+  const missingInventoryLevels = inventoryLevels.filter(
+    (level) => !existingInventoryItemIds.has(level.inventory_item_id)
+  );
+
+  if (missingInventoryLevels.length) {
+    await createInventoryLevelsWorkflow(container).run({
+      input: {
+        inventory_levels: missingInventoryLevels,
+      },
+    });
+  } else {
+    logger.info("BEEMUN inventory levels already exist. Skipping creation.");
+  }
 
   logger.info("Finished seeding inventory levels data.");
   logger.info(
