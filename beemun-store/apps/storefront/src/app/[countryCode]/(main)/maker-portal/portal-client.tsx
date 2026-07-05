@@ -94,7 +94,23 @@ const documentStatus = (status?: string | null) => {
   return "Pending"
 }
 
+const MAX_DOCUMENT_BYTES = 2 * 1024 * 1024
+const ACCEPTED_DOCUMENT_TYPES = [
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]
+
 const messageText = (item: Record<string, any>) => item.body || item.text || ""
+const documentFileLabel = (document: Record<string, any>) => {
+  return (
+    document.metadata?.original_filename ||
+    document.metadata?.file_name ||
+    document.file_name ||
+    (document.file_url ? "Uploaded document" : "No file uploaded")
+  )
+}
 
 export default function MakerPortalClient({
   countryCode,
@@ -105,6 +121,9 @@ export default function MakerPortalClient({
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState("")
   const [error, setError] = useState("")
+  const [documentFile, setDocumentFile] = useState<File | null>(null)
+  const [documentFileError, setDocumentFileError] = useState("")
+  const [documentSubmitting, setDocumentSubmitting] = useState(false)
 
   const vendor = data?.vendor
   const metadata = vendor?.metadata || {}
@@ -114,7 +133,63 @@ export default function MakerPortalClient({
   const status = statusCopy(vendor?.status)
   const tasks = useMemo(() => data?.tasks || [], [data?.tasks])
   const messages = useMemo(() => data?.messages || [], [data?.messages])
+  const documents = useMemo(() => data?.documents || [], [data?.documents])
   const latestReviewEvent = data?.review_events?.[data.review_events.length - 1]
+
+  const documentPayloadFromFile = (file: File) => {
+    return new Promise<{
+      content_base64: string
+      file_size: number
+      mime_type: string
+      original_filename: string
+    }>((resolve, reject) => {
+      if (!ACCEPTED_DOCUMENT_TYPES.includes(file.type)) {
+        reject(new Error("Upload a PDF, JPG, PNG, or WEBP file."))
+        return
+      }
+
+      if (file.size > MAX_DOCUMENT_BYTES) {
+        reject(new Error("Each document must be 2 MB or smaller."))
+        return
+      }
+
+      const reader = new FileReader()
+      reader.onload = () => {
+        const result = String(reader.result || "")
+        resolve({
+          content_base64: result.includes(",") ? result.split(",")[1] : result,
+          file_size: file.size,
+          mime_type: file.type,
+          original_filename: file.name,
+        })
+      }
+      reader.onerror = () => reject(new Error("This file could not be read."))
+      reader.readAsDataURL(file)
+    })
+  }
+
+  const handleDocumentFile = (file: File | null) => {
+    setDocumentFileError("")
+
+    if (!file) {
+      setDocumentFile(null)
+      return
+    }
+
+    if (!ACCEPTED_DOCUMENT_TYPES.includes(file.type)) {
+      setDocumentFile(null)
+      setDocumentFileError("Upload a PDF, JPG, PNG, or WEBP file.")
+      return
+    }
+
+    if (file.size > MAX_DOCUMENT_BYTES) {
+      setDocumentFile(null)
+      setDocumentFileError("Each document must be 2 MB or smaller.")
+      return
+    }
+
+    setDocumentFile(file)
+  }
 
   const load = async () => {
     setLoading(true)
@@ -185,22 +260,36 @@ export default function MakerPortalClient({
     event.preventDefault()
     const form = event.currentTarget
     const formData = new FormData(form)
+    const documentId = String(formData.get("document_id") || "").trim()
+    const existingDocument = documents.find((item) => item.id === documentId)
     const title = String(formData.get("title") || "").trim()
-    const fileUrl = String(formData.get("file_url") || "").trim()
 
-    if (!title) return
+    if (!title && !existingDocument) {
+      setDocumentFileError("Add a title or choose an existing document request.")
+      return
+    }
+    if (!documentFile) {
+      setDocumentFileError("Choose a document file before saving.")
+      return
+    }
 
     try {
+      setDocumentSubmitting(true)
+      const upload = await documentPayloadFromFile(documentFile)
       await sendPortalAction({
         action: "document",
+        document_id: documentId || null,
         document_type: String(formData.get("document_type") || "application"),
-        title,
-        file_url: fileUrl || null,
+        title: title || existingDocument?.title,
+        upload,
         note: String(formData.get("note") || ""),
       })
       form.reset()
+      setDocumentFile(null)
     } catch (sendError) {
       setError(sendError instanceof Error ? sendError.message : "Document failed.")
+    } finally {
+      setDocumentSubmitting(false)
     }
   }
 
@@ -435,29 +524,98 @@ export default function MakerPortalClient({
             <article className="beemun-portal-card">
               <p className="beemun-eyebrow">Documents</p>
               <h2>Evidence and uploads</h2>
-              {(data?.documents || []).length ? (
+              {documents.length ? (
                 <div className="beemun-mini-list">
-                  {(data?.documents || []).map((document) => (
+                  {documents.map((document) => (
                     <div key={document.id}>
                       <strong>{document.title}</strong>
                       <span>{documentStatus(document.status)}</span>
                       <p>
                         {document.file_url
-                          ? "File link received."
-                          : "Upload storage pending. BEEMUN may request a secure link."}
+                          ? `${documentFileLabel(document)}${
+                              document.metadata?.file_size
+                                ? ` / ${Math.max(
+                                    1,
+                                    Math.round(
+                                      Number(document.metadata.file_size) / 1024
+                                    )
+                                  )} KB`
+                                : ""
+                            }`
+                          : "No uploaded file yet. BEEMUN may request this as a task."}
                       </p>
+                      {document.file_url && (
+                        <a
+                          className="beemun-btn-secondary"
+                          href={`/api/beemun/maker-portal/documents/${document.id}/file`}
+                          rel="noreferrer"
+                          target="_blank"
+                        >
+                          View document
+                        </a>
+                      )}
                     </div>
                   ))}
                 </div>
               ) : (
-                <p>No documents recorded yet.</p>
+                <p>No documents recorded yet. BEEMUN will request anything missing here.</p>
               )}
               <form onSubmit={submitDocument}>
-                <input name="title" placeholder="Document title" required />
-                <input name="file_url" placeholder="Secure file link if requested" />
+                <select name="document_id" defaultValue="">
+                  <option value="">Upload a new document</option>
+                  {documents.map((document) => (
+                    <option key={document.id} value={document.id}>
+                      Replace or complete: {document.title}
+                    </option>
+                  ))}
+                </select>
+                <input name="title" placeholder="Document title" />
+                <select name="document_type" defaultValue="application">
+                  <option value="application">Application document</option>
+                  <option value="gst_certificate">GST certificate</option>
+                  <option value="business_registration">
+                    Business registration proof
+                  </option>
+                  <option value="brand_logo">Brand logo</option>
+                  <option value="certifications">Certifications</option>
+                  <option value="supporting_documents">
+                    Supporting document
+                  </option>
+                </select>
+                <label className="beemun-file-drop">
+                  <input
+                    accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
+                    type="file"
+                    onChange={(event) =>
+                      handleDocumentFile(event.currentTarget.files?.[0] || null)
+                    }
+                  />
+                  <span>{documentFile ? "Replace file" : "Choose file"}</span>
+                </label>
+                {documentFile && (
+                  <div className="beemun-upload-status">
+                    <div>
+                      <strong>{documentFile.name}</strong>
+                      <span>
+                        {documentFile.type || "File"} /{" "}
+                        {Math.max(1, Math.round(documentFile.size / 1024))} KB
+                      </span>
+                    </div>
+                    <button type="button" onClick={() => setDocumentFile(null)}>
+                      Remove
+                    </button>
+                  </div>
+                )}
+                {documentFileError && (
+                  <p className="beemun-upload-error">{documentFileError}</p>
+                )}
                 <textarea name="note" rows={2} placeholder="Optional note" />
-                <button className="beemun-btn-secondary" type="submit">
-                  Add document note
+                <button
+                  className="beemun-btn-secondary"
+                  disabled={documentSubmitting}
+                  type="submit"
+                >
+                  {documentSubmitting ? "Uploading..." : "Upload document"}
                 </button>
               </form>
             </article>

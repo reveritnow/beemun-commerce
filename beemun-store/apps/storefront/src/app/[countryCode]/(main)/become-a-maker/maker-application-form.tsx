@@ -25,15 +25,30 @@ type Values = {
   zpsFit: string
   notes: string
   agreementAccepted: boolean
+  finalConfirmation: boolean
 }
 
 type DocumentState = Record<
   string,
   {
-    available: boolean
+    contentBase64: string | null
+    error: string
+    fileName: string | null
+    fileSize: number | null
+    mimeType: string | null
     note: string
+    status: "idle" | "reading" | "ready" | "error"
   }
 >
+
+const MAX_DOCUMENT_BYTES = 2 * 1024 * 1024
+const MAX_TOTAL_DOCUMENT_BYTES = 4 * 1024 * 1024
+const ACCEPTED_DOCUMENT_TYPES = [
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]
 
 const categories = [
   "Skin & Body",
@@ -101,10 +116,19 @@ const initialValues: Values = {
   zpsFit: "",
   notes: "",
   agreementAccepted: false,
+  finalConfirmation: false,
 }
 
 const initialDocuments: DocumentState = documentTypes.reduce((acc, item) => {
-  acc[item.key] = { available: false, note: "" }
+  acc[item.key] = {
+    contentBase64: null,
+    error: "",
+    fileName: null,
+    fileSize: null,
+    mimeType: null,
+    note: "",
+    status: "idle",
+  }
   return acc
 }, {} as DocumentState)
 
@@ -136,7 +160,7 @@ const steps = [
   {
     title: "Documents",
     eyebrow: "Step 4",
-    summary: "Confirm which documents BEEMUN should request during review.",
+    summary: "Upload business documents for BEEMUN review.",
     fields: [],
   },
   {
@@ -162,7 +186,7 @@ const steps = [
     title: "Review & submit",
     eyebrow: "Step 7",
     summary: "Check the application before sending it to BEEMUN.",
-    fields: [],
+    fields: ["finalConfirmation"],
   },
 ]
 
@@ -183,6 +207,7 @@ const labels: Record<string, string> = {
   packagingPhilosophy: "Packaging philosophy",
   zpsFit: "ZPS 100 fit",
   agreementAccepted: "BEEMUN Maker Application Terms",
+  finalConfirmation: "Final submission confirmation",
 }
 
 const slugify = (value: string) => {
@@ -245,18 +270,82 @@ export default function MakerApplicationForm({
     setValues((currentValues) => ({ ...currentValues, [key]: value }))
   }
 
-  const updateDocument = (
-    key: string,
-    field: "available" | "note",
-    value: boolean | string
-  ) => {
+  const updateDocument = (key: string, value: Partial<DocumentState[string]>) => {
     setDocuments((currentDocuments) => ({
       ...currentDocuments,
       [key]: {
         ...currentDocuments[key],
-        [field]: value,
+        ...value,
       },
     }))
+  }
+
+  const uploadDocument = (key: string, file: File | null) => {
+    if (!file) {
+      return
+    }
+
+    if (!ACCEPTED_DOCUMENT_TYPES.includes(file.type)) {
+      updateDocument(key, {
+        error: "Upload a PDF, JPG, PNG, or WEBP file.",
+        status: "error",
+      })
+      return
+    }
+
+    if (file.size > MAX_DOCUMENT_BYTES) {
+      updateDocument(key, {
+        error: "Each document must be 2 MB or smaller.",
+        status: "error",
+      })
+      return
+    }
+
+    updateDocument(key, {
+      contentBase64: null,
+      error: "",
+      fileName: file.name,
+      fileSize: file.size,
+      mimeType: file.type,
+      status: "reading",
+    })
+
+    const reader = new FileReader()
+
+    reader.onload = () => {
+      const result = String(reader.result || "")
+      const contentBase64 = result.includes(",") ? result.split(",")[1] : result
+
+      updateDocument(key, {
+        contentBase64,
+        error: "",
+        fileName: file.name,
+        fileSize: file.size,
+        mimeType: file.type,
+        status: "ready",
+      })
+    }
+
+    reader.onerror = () => {
+      updateDocument(key, {
+        contentBase64: null,
+        error: "This file could not be read. Please try again.",
+        status: "error",
+      })
+    }
+
+    reader.readAsDataURL(file)
+  }
+
+  const removeDocument = (key: string) => {
+    updateDocument(key, {
+      contentBase64: null,
+      error: "",
+      fileName: null,
+      fileSize: null,
+      mimeType: null,
+      status: "idle",
+    })
   }
 
   const toggleCategory = (category: string) => {
@@ -272,12 +361,12 @@ export default function MakerApplicationForm({
       const missingDocument = documentTypes.find(
         (document) =>
           requiredDocumentKeys.has(document.key) &&
-          !documents[document.key].available
+          documents[document.key].status !== "ready"
       )
 
       if (missingDocument) {
         setError(
-          `${missingDocument.title} will be required for this application. Please confirm BEEMUN should request it during review.`
+          `${missingDocument.title} is required for the business details you entered. Please upload it before continuing.`
         )
         return false
       }
@@ -327,10 +416,54 @@ export default function MakerApplicationForm({
       return
     }
 
+    if (!values.finalConfirmation) {
+      setError("Please confirm this application is ready for BEEMUN review.")
+      return
+    }
+
+    const missingRequiredDocument = documentTypes.find(
+      (document) =>
+        requiredDocumentKeys.has(document.key) &&
+        documents[document.key].status !== "ready"
+    )
+
+    if (missingRequiredDocument) {
+      setStep(3)
+      setError(`${missingRequiredDocument.title} is required before submitting.`)
+      return
+    }
+
+    const totalDocumentBytes = Object.values(documents).reduce(
+      (total, document) => total + (document.fileSize || 0),
+      0
+    )
+
+    if (totalDocumentBytes > MAX_TOTAL_DOCUMENT_BYTES) {
+      setStep(3)
+      setError("Please keep total document uploads under 4 MB.")
+      return
+    }
+
+    if (state === "submitting") {
+      return
+    }
+
     const { firstName, lastName } = splitName(
       values.contactName || userName || ""
     )
     const acceptedAt = new Date().toISOString()
+    const documentReadiness = Object.fromEntries(
+      Object.entries(documents).map(([key, document]) => [
+        key,
+        {
+          file_name: document.fileName,
+          file_size: document.fileSize,
+          mime_type: document.mimeType,
+          note: document.note,
+          status: document.status,
+        },
+      ])
+    )
 
     setState("submitting")
 
@@ -358,12 +491,25 @@ export default function MakerApplicationForm({
           agreement_accepted_at: acceptedAt,
           agreement_version: "maker-application-v1",
           documents: documentTypes
-            .filter((item) => documents[item.key].available || documents[item.key].note)
+            .filter(
+              (item) =>
+                documents[item.key].status === "ready" ||
+                documents[item.key].note
+            )
             .map((item) => ({
               document_type: item.key,
               title: item.title,
               required: requiredDocumentKeys.has(item.key),
               note: documents[item.key].note || null,
+              upload:
+                documents[item.key].status === "ready"
+                  ? {
+                      content_base64: documents[item.key].contentBase64,
+                      file_size: documents[item.key].fileSize,
+                      mime_type: documents[item.key].mimeType,
+                      original_filename: documents[item.key].fileName,
+                    }
+                  : null,
             })),
           metadata: {
             public_application_source: "india-maker-approval-journey",
@@ -389,7 +535,7 @@ export default function MakerApplicationForm({
               country_code: "IN",
               country_name: "India",
             },
-            document_readiness: documents,
+            document_readiness: documentReadiness,
             required_document_types: Array.from(requiredDocumentKeys),
           },
           owner_metadata: {
@@ -620,41 +766,84 @@ export default function MakerApplicationForm({
 
           {step === 3 && (
             <div className="beemun-wizard-panel">
-              <h3>Document readiness</h3>
+              <h3>Upload documents for review</h3>
               <p>
-                Secure file upload storage is not enabled in this MVP, so this
-                step does not upload files. Confirm which documents BEEMUN
-                should request during review. Admin can turn missing documents
-                into tasks in your application dashboard.
+                Upload PDF, JPG, PNG, or WEBP files up to 2 MB each. Required
+                documents are based on the business details you entered. BEEMUN
+                may request a replacement if anything is unclear.
               </p>
               <div className="beemun-document-grid">
                 {documentTypes.map((document) => (
                   <article key={document.key}>
-                    <label className="beemun-inline-check">
+                    <div className="beemun-document-head">
+                      <strong>{document.title}</strong>
+                      <span>
+                        {requiredDocumentKeys.has(document.key)
+                          ? "Required"
+                          : "Optional"}
+                      </span>
+                    </div>
+                    <p>
+                      {requiredDocumentKeys.has(document.key)
+                        ? "Required for the business details you entered."
+                        : document.requiredWhen}
+                    </p>
+                    <label className="beemun-file-drop">
                       <input
-                        type="checkbox"
-                        checked={documents[document.key].available}
+                        accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
+                        type="file"
                         onChange={(event) =>
-                          updateDocument(
+                          uploadDocument(
                             document.key,
-                            "available",
-                            event.target.checked
+                            event.currentTarget.files?.[0] || null
                           )
                         }
                       />
-                      <span>{document.title}</span>
+                      <span>
+                        {documents[document.key].status === "ready"
+                          ? "Replace file"
+                          : documents[document.key].status === "reading"
+                          ? "Preparing upload..."
+                          : "Choose file"}
+                      </span>
                     </label>
-                    <p>
-                      {requiredDocumentKeys.has(document.key)
-                        ? "Required for the details you entered. BEEMUN will request this during review."
-                        : document.requiredWhen}
-                    </p>
+                    {documents[document.key].fileName && (
+                      <div className="beemun-upload-status">
+                        <div>
+                          <strong>{documents[document.key].fileName}</strong>
+                          <span>
+                            {documents[document.key].mimeType || "File"} /{" "}
+                            {Math.max(
+                              1,
+                              Math.round(
+                                (documents[document.key].fileSize || 0) / 1024
+                              )
+                            )}
+                            KB /{" "}
+                            {documents[document.key].status === "ready"
+                              ? "Ready to submit"
+                              : documents[document.key].status}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeDocument(document.key)}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    )}
+                    {documents[document.key].error && (
+                      <p className="beemun-upload-error">
+                        {documents[document.key].error}
+                      </p>
+                    )}
                     <textarea
                       rows={2}
-                      placeholder="Optional note, such as already available, needs time, or not applicable"
+                      placeholder="Optional note for BEEMUN"
                       value={documents[document.key].note}
                       onChange={(event) =>
-                        updateDocument(document.key, "note", event.target.value)
+                        updateDocument(document.key, { note: event.target.value })
                       }
                     />
                   </article>
@@ -819,9 +1008,9 @@ export default function MakerApplicationForm({
                 <span>Documents</span>
                 <p>
                   {documentTypes
-                    .filter((item) => documents[item.key].available)
-                    .map((item) => item.title)
-                    .join(", ") || "No document readiness marked yet"}
+                    .filter((item) => documents[item.key].status === "ready")
+                    .map((item) => documents[item.key].fileName || item.title)
+                    .join(", ") || "No documents uploaded yet"}
                 </p>
               </article>
               <article className="wide">
@@ -832,6 +1021,22 @@ export default function MakerApplicationForm({
                     ? "maker-application-v1"
                     : "Not yet accepted"}
                 </p>
+              </article>
+              <article className="wide">
+                <span>Final confirmation</span>
+                <label className="beemun-inline-check">
+                  <input
+                    checked={values.finalConfirmation}
+                    onChange={(event) =>
+                      update("finalConfirmation", event.target.checked)
+                    }
+                    type="checkbox"
+                  />
+                  <strong>
+                    I confirm this application and its uploaded documents are
+                    ready for BEEMUN review.
+                  </strong>
+                </label>
               </article>
             </div>
           )}

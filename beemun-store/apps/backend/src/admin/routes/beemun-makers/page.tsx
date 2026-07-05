@@ -97,6 +97,25 @@ const categoriesText = (value?: string[] | string | null) => {
   return value || "Not provided"
 }
 
+const documentFileLabel = (document: Record<string, any>) => {
+  return (
+    document.metadata?.original_filename ||
+    document.metadata?.file_name ||
+    (document.file_url ? "Uploaded document" : "No file uploaded")
+  )
+}
+
+const documentFileMeta = (document: Record<string, any>) => {
+  const parts = [
+    document.metadata?.mime_type,
+    document.metadata?.file_size
+      ? `${Math.max(1, Math.round(Number(document.metadata.file_size) / 1024))} KB`
+      : null,
+  ].filter(Boolean)
+
+  return parts.join(" / ")
+}
+
 const normalizeError = async (response: Response) => {
   const data = await response.json().catch(() => null)
 
@@ -481,19 +500,47 @@ const MakerReviewPage = () => {
                         key={document.id}
                         className="rounded-md border border-ui-border-base p-3 text-sm"
                       >
-                        <div className="flex justify-between gap-3">
-                          <span className="font-medium text-ui-fg-base">
-                            {document.title}
-                          </span>
-                          <span className="text-ui-fg-muted">
-                            {document.status}
+                        <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                          <div>
+                            <span className="font-medium text-ui-fg-base">
+                              {document.title}
+                            </span>
+                            <p className="mt-1 text-xs text-ui-fg-muted">
+                              {document.metadata?.required
+                                ? "Required for this application"
+                                : "Optional or supporting evidence"}
+                            </p>
+                          </div>
+                          <span
+                            className={`inline-flex w-fit rounded-full border px-2 py-1 text-xs font-medium ${
+                              document.file_url
+                                ? "border-blue-200 bg-blue-50 text-blue-700"
+                                : "border-orange-200 bg-orange-50 text-orange-700"
+                            }`}
+                          >
+                            {document.file_url ? document.status : "missing file"}
                           </span>
                         </div>
                         <p className="mt-1 text-ui-fg-subtle">
                           {document.file_url
-                            ? document.file_url
-                            : "No stored file yet. Applicant marked readiness or BEEMUN can request a secure link."}
+                            ? documentFileLabel(document)
+                            : "No uploaded file is attached yet. Request it as a task if it is needed before approval."}
                         </p>
+                        {document.file_url && documentFileMeta(document) && (
+                          <p className="mt-1 text-xs text-ui-fg-muted">
+                            {documentFileMeta(document)}
+                          </p>
+                        )}
+                        {document.file_url && (
+                          <a
+                            className="mt-2 inline-flex text-sm font-medium text-ui-fg-interactive"
+                            href={`/admin/beemun/vendors/${selectedVendor.id}/documents/${document.id}/file`}
+                            rel="noreferrer"
+                            target="_blank"
+                          >
+                            View document
+                          </a>
+                        )}
                         {document.metadata?.applicant_note && (
                           <p className="mt-1 text-ui-fg-subtle">
                             Note: {document.metadata.applicant_note}
