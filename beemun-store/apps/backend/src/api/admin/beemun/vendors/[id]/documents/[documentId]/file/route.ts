@@ -1,5 +1,6 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { marketplaceServiceOf } from "../../../../../marketplace/helpers"
+import { requireBeemunApprovalRole } from "../../../../../permissions"
 import { retrieveStoredDocumentFile } from "../../../../../../../vendor/beemun/document-storage"
 
 const safeFilename = (value: unknown) => {
@@ -8,6 +9,10 @@ const safeFilename = (value: unknown) => {
 }
 
 export async function GET(req: MedusaRequest, res: MedusaResponse) {
+  if (!(await requireBeemunApprovalRole(req, res))) {
+    return
+  }
+
   const marketplace = marketplaceServiceOf(req)
   const vendorId = String(req.params.id || "")
   const documentId = String(req.params.documentId || "")

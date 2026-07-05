@@ -19,6 +19,7 @@ type DocumentFilter =
   | "rejected"
   | "replacement"
   | "missing"
+type DecisionAction = "under-review" | "approve" | "reject"
 
 type VendorMetadata = {
   legal_business_name?: string | null
@@ -278,6 +279,8 @@ const MakerReviewPage = () => {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [rejectReason, setRejectReason] = useState("")
+  const [reviewActionNote, setReviewActionNote] = useState("")
+  const [pendingDecision, setPendingDecision] = useState<DecisionAction | null>(null)
   const [reviewNote, setReviewNote] = useState("")
   const [adminMessage, setAdminMessage] = useState("")
   const [taskTitle, setTaskTitle] = useState("")
@@ -437,14 +440,14 @@ const MakerReviewPage = () => {
 
   const transitionVendor = async (
     vendor: Vendor,
-    action: "under-review" | "approve" | "reject"
+    action: DecisionAction
   ) => {
     const reason =
       action === "reject"
         ? rejectReason.trim()
         : action === "approve"
-        ? "Maker approved by BEEMUN admin"
-        : "Maker moved to BEEMUN review"
+        ? reviewActionNote.trim() || "Maker approved by BEEMUN admin"
+        : reviewActionNote.trim() || "Maker moved to BEEMUN review"
 
     if (action === "reject" && !reason) {
       setError("Add a rejection reason before rejecting this maker.")
@@ -467,6 +470,18 @@ const MakerReviewPage = () => {
         : "Maker moved under review."
     )
     setRejectReason("")
+    setReviewActionNote("")
+    setPendingDecision(null)
+  }
+
+  const requestDecision = (action: DecisionAction) => {
+    if (action === "reject" && !rejectReason.trim()) {
+      setError("Add a rejection reason before opening the rejection confirmation.")
+      return
+    }
+
+    setError("")
+    setPendingDecision(action)
   }
 
   const submitNote = async (event: FormEvent<HTMLFormElement>) => {
@@ -542,11 +557,18 @@ const MakerReviewPage = () => {
               placeholder="Rejection reason if rejecting"
               aria-label="Rejection reason"
             />
+            <input
+              className="min-w-[240px] rounded-md border border-ui-border-base bg-ui-bg-base px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ui-border-interactive"
+              value={reviewActionNote}
+              onChange={(event) => setReviewActionNote(event.target.value)}
+              placeholder="Optional approval/review note"
+              aria-label="Optional approval or under review note"
+            />
             <button
               type="button"
               className="rounded-md border border-ui-border-base bg-ui-bg-base px-3 py-2 text-sm font-medium text-ui-fg-base hover:bg-ui-bg-subtle focus:outline-none focus:ring-2 focus:ring-ui-border-interactive disabled:opacity-50"
               disabled={saving || selectedVendor.status === "under_review"}
-              onClick={() => transitionVendor(selectedVendor, "under-review")}
+              onClick={() => requestDecision("under-review")}
             >
               Under Review
             </button>
@@ -571,7 +593,7 @@ const MakerReviewPage = () => {
               type="button"
               className="rounded-md bg-ui-bg-interactive px-3 py-2 text-sm font-medium text-ui-fg-on-color focus:outline-none focus:ring-2 focus:ring-ui-border-interactive disabled:opacity-50"
               disabled={saving || selectedVendor.status === "approved"}
-              onClick={() => transitionVendor(selectedVendor, "approve")}
+              onClick={() => requestDecision("approve")}
             >
               Approve
             </button>
@@ -579,7 +601,7 @@ const MakerReviewPage = () => {
               type="button"
               className="rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-red-300 disabled:opacity-50"
               disabled={saving || selectedVendor.status === "rejected"}
-              onClick={() => transitionVendor(selectedVendor, "reject")}
+              onClick={() => requestDecision("reject")}
             >
               Reject
             </button>
@@ -1233,6 +1255,106 @@ const MakerReviewPage = () => {
     </div>
   )
 
+  const renderDecisionModal = () => {
+    if (!pendingDecision || !selectedVendor) return null
+
+    const actionLabel =
+      pendingDecision === "approve"
+        ? "Approve maker"
+        : pendingDecision === "reject"
+        ? "Reject maker"
+        : "Mark under review"
+    const actionCopy =
+      pendingDecision === "approve"
+        ? "This unlocks approved maker status. Product tools remain outside Stage 2."
+        : pendingDecision === "reject"
+        ? "This records a rejection decision and shows the reason in the maker portal."
+        : "This moves the application into active BEEMUN review."
+
+    return (
+      <div
+        className="fixed inset-0 z-50 grid place-items-center bg-black/40 px-4"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="beemun-decision-title"
+      >
+        <div className="w-full max-w-xl rounded-xl border border-ui-border-base bg-ui-bg-base p-6 shadow-elevation-flyout">
+          <h2 id="beemun-decision-title" className="text-xl font-semibold text-ui-fg-base">
+            {actionLabel}
+          </h2>
+          <p className="mt-2 text-sm text-ui-fg-subtle">{actionCopy}</p>
+
+          <div className="mt-5 grid gap-3 rounded-lg bg-ui-bg-subtle p-4 text-sm">
+            <div className="flex justify-between gap-4">
+              <span className="text-ui-fg-muted">Maker</span>
+              <strong className="text-right text-ui-fg-base">
+                {metadata.brand_public_name || selectedVendor.name}
+              </strong>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-ui-fg-muted">Current status</span>
+              <strong className="text-right capitalize text-ui-fg-base">
+                {selectedVendor.status.replace(/_/g, " ")}
+              </strong>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-ui-fg-muted">Completion</span>
+              <strong className="text-right text-ui-fg-base">
+                {completionFor(selectedVendor)}%
+              </strong>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-ui-fg-muted">Open tasks</span>
+              <strong className="text-right text-ui-fg-base">{openTasks.length}</strong>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-ui-fg-muted">Pending documents</span>
+              <strong className="text-right text-ui-fg-base">{pendingDocuments.length}</strong>
+            </div>
+            {pendingDecision === "reject" && (
+              <div>
+                <span className="text-ui-fg-muted">Rejection reason</span>
+                <p className="mt-1 whitespace-pre-wrap font-medium text-ui-fg-base">
+                  {rejectReason.trim()}
+                </p>
+              </div>
+            )}
+            {pendingDecision !== "reject" && reviewActionNote.trim() && (
+              <div>
+                <span className="text-ui-fg-muted">Reviewer note</span>
+                <p className="mt-1 whitespace-pre-wrap font-medium text-ui-fg-base">
+                  {reviewActionNote.trim()}
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-6 flex flex-wrap justify-end gap-2">
+            <button
+              type="button"
+              className="rounded-md border border-ui-border-base px-3 py-2 text-sm font-medium text-ui-fg-base hover:bg-ui-bg-subtle focus:outline-none focus:ring-2 focus:ring-ui-border-interactive"
+              onClick={() => setPendingDecision(null)}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className={`rounded-md px-3 py-2 text-sm font-medium text-white focus:outline-none focus:ring-2 disabled:opacity-50 ${
+                pendingDecision === "reject"
+                  ? "bg-red-600 focus:ring-red-300"
+                  : "bg-ui-bg-interactive focus:ring-ui-border-interactive"
+              }`}
+              disabled={saving || (pendingDecision === "reject" && !rejectReason.trim())}
+              onClick={() => transitionVendor(selectedVendor, pendingDecision)}
+            >
+              {saving ? "Saving..." : `Confirm ${actionLabel.toLowerCase()}`}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   const renderWorkspace = () => {
     if (!selectedVendor) {
       return (
@@ -1254,6 +1376,7 @@ const MakerReviewPage = () => {
 
   return (
     <div className="flex min-h-screen flex-col bg-ui-bg-subtle">
+      {renderDecisionModal()}
       <div className="sticky top-0 z-10 border-b border-ui-border-base bg-ui-bg-base px-6 py-5">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div>

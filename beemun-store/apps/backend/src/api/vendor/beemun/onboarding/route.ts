@@ -7,10 +7,22 @@ import {
   assertPortalDocumentAccess,
   DocumentUploadError,
 } from "../document-storage"
+import { enforceRateLimit, rateLimitKeyFor } from "../rate-limit"
 
 export async function POST(req: MedusaRequest, res: MedusaResponse) {
   try {
     assertPortalDocumentAccess(req.headers)
+    const body = (req.body || {}) as Record<string, any>
+    if (
+      !enforceRateLimit(req, res, {
+        key: rateLimitKeyFor(req, "vendor-onboarding", body.email),
+        limit: 5,
+        windowMs: 60 * 60_000,
+      })
+    ) {
+      return
+    }
+
     const result = await createVendorFromOnboarding(req)
 
     res.status(201).json(result)

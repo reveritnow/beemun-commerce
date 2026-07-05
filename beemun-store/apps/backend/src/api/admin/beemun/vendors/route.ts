@@ -1,5 +1,6 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { marketplaceServiceOf } from "../marketplace/helpers"
+import { requireBeemunApprovalRole } from "../permissions"
 
 const enrichVendor = async (
   marketplace: Record<string, any>,
@@ -62,6 +63,10 @@ const enrichVendor = async (
 }
 
 export async function GET(req: MedusaRequest, res: MedusaResponse) {
+  if (!(await requireBeemunApprovalRole(req, res))) {
+    return
+  }
+
   const marketplace = marketplaceServiceOf(req)
   const status = req.query.status as string | undefined
   const filters = status ? { status } : {}
@@ -74,6 +79,10 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
 }
 
 export async function POST(req: MedusaRequest, res: MedusaResponse) {
+  if (!(await requireBeemunApprovalRole(req, res))) {
+    return
+  }
+
   const marketplace = marketplaceServiceOf(req)
   const body = (req.body || {}) as Record<string, any>
 

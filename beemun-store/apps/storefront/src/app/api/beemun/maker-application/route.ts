@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getBeemunSession } from "../../../../lib/get-session"
+import {
+  checkRateLimit,
+  rateLimitedResponse,
+  rateLimitKey,
+} from "../../../../lib/rate-limit"
 
 const cleanBackendUrl = (url: string) => url.replace(/\/+$/, "")
 
@@ -37,6 +42,15 @@ export async function POST(request: NextRequest) {
   const portalSecret = process.env.BEEMUN_PORTAL_API_SECRET
   const session = await getBeemunSession()
   const user = (session as any)?.user
+  const rateLimit = checkRateLimit({
+    key: rateLimitKey(request, "maker-application", user?.email),
+    limit: 5,
+    windowMs: 60 * 60_000,
+  })
+
+  if (!rateLimit.allowed) {
+    return rateLimitedResponse(rateLimit.retryAfter)
+  }
 
   if (!user?.email) {
     return NextResponse.json(

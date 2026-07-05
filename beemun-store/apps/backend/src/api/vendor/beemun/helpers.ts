@@ -131,6 +131,13 @@ const shortSuffix = () => {
   return Math.random().toString(36).slice(2, 8)
 }
 
+const GSTIN_RE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/i
+const PAN_RE = /^[A-Z]{5}[0-9]{4}[A-Z]$/i
+const PIN_RE = /^[1-9][0-9]{5}$/
+const MOBILE_RE = /^(?:\+91[-\s]?)?[6-9][0-9]{9}$/
+const IFSC_RE = /^[A-Z]{4}0[A-Z0-9]{6}$/i
+const BANK_ACCOUNT_RE = /^[0-9]{9,18}$/
+
 const normalizeEmail = (value?: string | null) => {
   return typeof value === "string" ? value.trim().toLowerCase() : ""
 }
@@ -237,6 +244,67 @@ const validateOnboardingBody = (body: RequestBody) => {
       "Please accept the BEEMUN Maker Application Terms before submitting.",
       400,
       "agreement_required"
+    )
+  }
+}
+
+const validateIndiaApplicationDetails = (
+  body: RequestBody,
+  metadata: Record<string, unknown>
+) => {
+  const gstin = nullableString(metadata.gstin)
+  const pan = nullableString(metadata.pan)
+  const phone = nullableString(body.phone)
+  const bankAccount = nullableString(metadata.bank_account)
+  const ifsc = nullableString(metadata.ifsc)
+  const address = metadataObject(metadata.address || {})
+  const pinCode = nullableString(address.pin_code)
+
+  if (gstin && !GSTIN_RE.test(gstin)) {
+    throw new OnboardingError(
+      "Please enter a valid GSTIN.",
+      400,
+      "invalid_gstin"
+    )
+  }
+
+  if (pan && !PAN_RE.test(pan)) {
+    throw new OnboardingError(
+      "Please enter a valid PAN.",
+      400,
+      "invalid_pan"
+    )
+  }
+
+  if (pinCode && !PIN_RE.test(pinCode)) {
+    throw new OnboardingError(
+      "Please enter a valid 6-digit Indian PIN code.",
+      400,
+      "invalid_pin_code"
+    )
+  }
+
+  if (phone && !MOBILE_RE.test(phone)) {
+    throw new OnboardingError(
+      "Please enter a valid Indian mobile number.",
+      400,
+      "invalid_mobile_number"
+    )
+  }
+
+  if (bankAccount && !BANK_ACCOUNT_RE.test(bankAccount)) {
+    throw new OnboardingError(
+      "Please enter a valid bank account number.",
+      400,
+      "invalid_bank_account"
+    )
+  }
+
+  if (ifsc && !IFSC_RE.test(ifsc)) {
+    throw new OnboardingError(
+      "Please enter a valid IFSC code.",
+      400,
+      "invalid_ifsc"
     )
   }
 }
@@ -481,6 +549,7 @@ export const createVendorFromOnboarding = async (req: MedusaRequest) => {
   const applicationCountry = "India"
   const countryCode = normalizeCountryCode(body.country_code)
   const metadata = metadataObject(body.metadata)
+  validateIndiaApplicationDetails(body, metadata)
   const documents = Array.isArray(body.documents) ? body.documents : []
   validateRequiredDocumentReadiness(metadata, body, documents)
   validateTotalDocumentUploadSize(documents)

@@ -1,7 +1,22 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { marketplaceServiceOf } from "../../../marketplace/helpers"
+import { requireBeemunApprovalRole } from "../../../permissions"
+import { enforceRateLimit, rateLimitKeyFor } from "../../../../../vendor/beemun/rate-limit"
 
 export async function POST(req: MedusaRequest, res: MedusaResponse) {
+  if (!(await requireBeemunApprovalRole(req, res))) {
+    return
+  }
+  if (
+    !enforceRateLimit(req, res, {
+      key: rateLimitKeyFor(req, "admin-maker-task", (req as any).auth_context?.actor_id),
+      limit: 60,
+      windowMs: 60 * 60_000,
+    })
+  ) {
+    return
+  }
+
   const marketplace = marketplaceServiceOf(req)
   const body = (req.body || {}) as Record<string, any>
   const title = String(body.title || "").trim()

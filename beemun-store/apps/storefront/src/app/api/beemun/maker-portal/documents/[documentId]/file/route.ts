@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getBeemunSession } from "../../../../../../../lib/get-session"
+import {
+  checkRateLimit,
+  rateLimitedResponse,
+  rateLimitKey,
+} from "../../../../../../../lib/rate-limit"
 
 const cleanBackendUrl = (url: string) => url.replace(/\/+$/, "")
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ documentId: string }> }
 ) {
   const backendUrl = process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL
@@ -12,6 +17,15 @@ export async function GET(
   const session = await getBeemunSession()
   const email = (session as any)?.user?.email as string | undefined
   const { documentId } = await params
+  const rateLimit = checkRateLimit({
+    key: rateLimitKey(request, "maker-document-view", email),
+    limit: 60,
+    windowMs: 60_000,
+  })
+
+  if (!rateLimit.allowed) {
+    return rateLimitedResponse(rateLimit.retryAfter)
+  }
 
   if (!email) {
     return NextResponse.json({ message: "Sign in is required." }, { status: 401 })

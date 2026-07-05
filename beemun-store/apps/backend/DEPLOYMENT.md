@@ -11,6 +11,9 @@ This backend is ready for Render, Railway, Koyeb, or any Node host with Postgres
 - `JWT_SECRET`: long random production secret.
 - `COOKIE_SECRET`: long random production secret.
 - `BEEMUN_PORTAL_API_SECRET`: long random shared secret used by the Vercel storefront to request private maker document files from Railway. Set the exact same value in Vercel.
+- `BEEMUN_APPROVAL_SUPER_ADMIN_EMAILS`: comma-separated Medusa Admin emails that can manage BEEMUN maker approvals.
+- `BEEMUN_APPROVAL_MAKER_REVIEWER_EMAILS`: comma-separated Medusa Admin emails that can review makers, view documents, approve, reject, request replacement, create tasks, and message applicants.
+- `BEEMUN_APPROVAL_SUPPORT_EMAILS`: optional comma-separated Medusa Admin emails reserved for future read/support access. Support users are not allowed to access approval actions unless also listed as Super Admin or Maker Reviewer.
 - `NODE_ENV`: `production`.
 - `REDIS_URL`: optional if the provider includes Redis.
 
@@ -69,5 +72,11 @@ Set these on Vercel:
 - `NEXT_PUBLIC_DEFAULT_REGION`: `gb`.
 - `NEXT_PUBLIC_BASE_URL`: deployed Vercel storefront URL.
 - `BEEMUN_PORTAL_API_SECRET`: same long random value configured on Railway. If missing, the storefront still builds and runs, but maker document viewing returns a controlled "document access is not configured" error.
+
+## BEEMUN maker approval access
+
+For production, at least one admin email must be present in `BEEMUN_APPROVAL_SUPER_ADMIN_EMAILS` or `BEEMUN_APPROVAL_MAKER_REVIEWER_EMAILS`. If these variables are empty in production, Medusa Admin users will receive `403` responses from the BEEMUN maker approval APIs.
+
+The Stage 2 maker approval endpoints include in-memory rate limits for sign-in, application submission, portal actions, document upload/viewing, messages, and tasks. For higher traffic or multi-instance deployments, move the same keys to Redis without changing endpoint behavior.
 
 After these are set, redeploy Vercel. Homepage products, store listing, product page, cart, checkout, and region lookup will use the live backend.

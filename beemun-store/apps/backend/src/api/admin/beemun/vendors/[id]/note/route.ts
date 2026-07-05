@@ -1,7 +1,12 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { marketplaceServiceOf } from "../../../marketplace/helpers"
+import { requireBeemunApprovalRole } from "../../../permissions"
 
 export async function POST(req: MedusaRequest, res: MedusaResponse) {
+  if (!(await requireBeemunApprovalRole(req, res))) {
+    return
+  }
+
   const marketplace = marketplaceServiceOf(req)
   const body = (req.body || {}) as Record<string, any>
   const note = String(body.note || "").trim()

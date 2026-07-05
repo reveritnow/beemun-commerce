@@ -50,6 +50,11 @@ const ACCEPTED_DOCUMENT_TYPES = [
   "image/webp",
 ]
 
+const GSTIN_RE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/i
+const PIN_RE = /^[1-9][0-9]{5}$/
+const MOBILE_RE = /^(?:\+91[-\s]?)?[6-9][0-9]{9}$/
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 const categories = [
   "Skin & Body",
   "Hair Care",
@@ -239,6 +244,7 @@ export default function MakerApplicationForm({
   const [step, setStep] = useState(0)
   const [state, setState] = useState<WizardState>("idle")
   const [error, setError] = useState("")
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [documents, setDocuments] = useState<DocumentState>(initialDocuments)
   const [values, setValues] = useState<Values>({
@@ -356,7 +362,60 @@ export default function MakerApplicationForm({
     )
   }
 
+  const fieldErrorFor = (key: string) => {
+    if (key === "gstin" && values.gstin.trim() && !GSTIN_RE.test(values.gstin.trim())) {
+      return "Enter a valid GSTIN, for example 27ABCDE1234F1Z5."
+    }
+
+    if (key === "pinCode" && values.pinCode.trim() && !PIN_RE.test(values.pinCode.trim())) {
+      return "Enter a valid 6-digit Indian PIN code."
+    }
+
+    if (key === "phone" && values.phone.trim() && !MOBILE_RE.test(values.phone.trim())) {
+      return "Enter a valid Indian mobile number."
+    }
+
+    if (key === "email" && userEmail && !EMAIL_RE.test(userEmail)) {
+      return "Your account email is not valid."
+    }
+
+    return ""
+  }
+
   const validateStep = () => {
+    const nextFieldErrors: Record<string, string> = {}
+
+    for (const field of current.fields) {
+      if (field !== "productCategories" && field !== "agreementAccepted" && field !== "finalConfirmation") {
+        const fieldError = fieldErrorFor(field)
+        if (fieldError) {
+          nextFieldErrors[field] = fieldError
+        }
+      }
+    }
+
+    if (current.title === "Business identity") {
+      for (const field of ["gstin", "phone", "email"]) {
+        const fieldError = fieldErrorFor(field)
+        if (fieldError) {
+          nextFieldErrors[field] = fieldError
+        }
+      }
+    }
+
+    if (current.title === "Business address") {
+      const fieldError = fieldErrorFor("pinCode")
+      if (fieldError) {
+        nextFieldErrors.pinCode = fieldError
+      }
+    }
+
+    if (Object.keys(nextFieldErrors).length) {
+      setFieldErrors(nextFieldErrors)
+      setError("Please correct the highlighted fields before continuing.")
+      return false
+    }
+
     if (current.title === "Documents") {
       const missingDocument = documentTypes.find(
         (document) =>
@@ -386,10 +445,12 @@ export default function MakerApplicationForm({
     })
 
     if (missing) {
+      setFieldErrors({ [missing]: `${labels[missing]} is required.` })
       setError(`${labels[missing]} is required before continuing.`)
       return false
     }
 
+    setFieldErrors({})
     setError("")
     return true
   }
@@ -412,12 +473,28 @@ export default function MakerApplicationForm({
     setError("")
 
     if (!values.agreementAccepted) {
+      setFieldErrors({ agreementAccepted: "Agreement is required." })
       setError("Please accept the BEEMUN Maker Application Terms.")
       return
     }
 
     if (!values.finalConfirmation) {
+      setFieldErrors({ finalConfirmation: "Final confirmation is required." })
       setError("Please confirm this application is ready for BEEMUN review.")
+      return
+    }
+
+    const finalFieldErrors: Record<string, string> = {}
+    for (const field of ["gstin", "pinCode", "phone", "email"]) {
+      const fieldError = fieldErrorFor(field)
+      if (fieldError) {
+        finalFieldErrors[field] = fieldError
+      }
+    }
+
+    if (Object.keys(finalFieldErrors).length) {
+      setFieldErrors(finalFieldErrors)
+      setError("Please correct the highlighted fields before submitting.")
       return
     }
 
@@ -683,6 +760,9 @@ export default function MakerApplicationForm({
                   onChange={(event) => update("gstin", event.target.value)}
                   placeholder="Optional for now"
                 />
+                {fieldErrors.gstin && (
+                  <small className="beemun-field-error">{fieldErrors.gstin}</small>
+                )}
               </label>
               <label>
                 <span>Website / Instagram</span>
@@ -703,6 +783,9 @@ export default function MakerApplicationForm({
               <label>
                 <span>Email</span>
                 <input type="email" value={userEmail} disabled />
+                {fieldErrors.email && (
+                  <small className="beemun-field-error">{fieldErrors.email}</small>
+                )}
               </label>
               <label>
                 <span>Phone *</span>
@@ -712,6 +795,9 @@ export default function MakerApplicationForm({
                   onChange={(event) => update("phone", event.target.value)}
                   required
                 />
+                {fieldErrors.phone && (
+                  <small className="beemun-field-error">{fieldErrors.phone}</small>
+                )}
               </label>
             </div>
           )}
@@ -756,6 +842,9 @@ export default function MakerApplicationForm({
                   onChange={(event) => update("pinCode", event.target.value)}
                   required
                 />
+                {fieldErrors.pinCode && (
+                  <small className="beemun-field-error">{fieldErrors.pinCode}</small>
+                )}
               </label>
               <label>
                 <span>Country</span>

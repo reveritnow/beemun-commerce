@@ -4,7 +4,7 @@ import PublicPage from "../_components/public-page"
 export const metadata: Metadata = {
   title: "Privacy Policy",
   description:
-    "A general privacy policy foundation for BEEMUN, ready for legal review before launch.",
+    "How BEEMUN collects, uses, and protects information for customers and maker applicants.",
 }
 
 export default async function PrivacyPolicyPage({
@@ -18,26 +18,27 @@ export default async function PrivacyPolicyPage({
     <PublicPage
       countryCode={countryCode}
       eyebrow="Privacy policy"
-      title="A privacy foundation for review before launch."
-      intro="This page outlines the kind of privacy information BEEMUN expects to provide. It should be reviewed and finalized before production legal use."
+      title="How BEEMUN handles personal and business information."
+      intro="BEEMUN collects only the information needed to operate the storefront, review makers, support orders, protect accounts, and improve trust in the marketplace."
       primaryLink={{ href: "/contact", label: "Contact BEEMUN" }}
       sections={[
         {
           eyebrow: "Data",
-          title: "Information used to operate the store",
-          body: "BEEMUN may need customer, order, account, payment status, shipping, and support information to operate the marketplace and fulfill requests.",
+          title: "Information we collect",
+          body: "We may collect account details, contact information, order and shipping details, support messages, maker application details, uploaded business documents, device information, and security logs.",
         },
         {
           eyebrow: "Use",
-          title: "How information supports service",
-          body: "Information may be used for checkout, order support, account access, fraud prevention, customer communication, and marketplace operations.",
+          title: "How information is used",
+          body: "Information is used to provide account access, process orders, review maker applications, communicate about support or review tasks, prevent misuse, maintain security, and meet legal or operational obligations.",
         },
         {
-          eyebrow: "Review",
-          title: "Legal review required",
-          body: "This placeholder should be replaced or approved by qualified counsel before BEEMUN relies on it as a final privacy policy.",
+          eyebrow: "Control",
+          title: "Access and deletion requests",
+          body: "You may contact BEEMUN to request access, correction, or deletion of your information. Some records may be retained where required for security, compliance, dispute handling, tax, or marketplace operations.",
         },
       ]}
+      note="Uploaded maker documents are treated as sensitive business records and are only used for BEEMUN review, compliance, and account safety."
     />
   )
 }

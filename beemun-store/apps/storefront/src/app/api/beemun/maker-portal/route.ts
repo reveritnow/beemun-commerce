@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getBeemunSession } from "../../../../lib/get-session"
+import {
+  checkRateLimit,
+  rateLimitedResponse,
+  rateLimitKey,
+} from "../../../../lib/rate-limit"
 
 const cleanBackendUrl = (url: string) => url.replace(/\/+$/, "")
 
@@ -44,10 +49,19 @@ const sessionEmail = async () => {
   return (session as any)?.user?.email as string | undefined
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const email = await sessionEmail()
   const url = backendUrl()
   const secret = portalSecret()
+  const rateLimit = checkRateLimit({
+    key: rateLimitKey(request, "maker-portal:get", email),
+    limit: 120,
+    windowMs: 60_000,
+  })
+
+  if (!rateLimit.allowed) {
+    return rateLimitedResponse(rateLimit.retryAfter)
+  }
 
   if (!email) {
     return NextResponse.json({ message: "Sign in is required." }, { status: 401 })
@@ -99,6 +113,22 @@ export async function POST(request: NextRequest) {
   const email = await sessionEmail()
   const url = backendUrl()
   const secret = portalSecret()
+  const payload = await request.json().catch(() => null)
+  const action = payload && typeof payload === "object" ? String(payload.action || "portal") : "portal"
+  const rateLimit = checkRateLimit({
+    key: rateLimitKey(request, `maker-portal:${action}`, email),
+    limit:
+      action === "document"
+        ? 12
+        : action === "message" || action === "complete_task"
+        ? 30
+        : 60,
+    windowMs: 60 * 60_000,
+  })
+
+  if (!rateLimit.allowed) {
+    return rateLimitedResponse(rateLimit.retryAfter)
+  }
 
   if (!email) {
     return NextResponse.json({ message: "Sign in is required." }, { status: 401 })
@@ -117,8 +147,6 @@ export async function POST(request: NextRequest) {
       { status: 503 }
     )
   }
-
-  const payload = await request.json().catch(() => null)
 
   if (!payload || typeof payload !== "object") {
     return NextResponse.json(

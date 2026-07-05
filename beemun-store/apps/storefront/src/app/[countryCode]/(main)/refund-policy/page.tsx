@@ -4,7 +4,7 @@ import PublicPage from "../_components/public-page"
 export const metadata: Metadata = {
   title: "Refund Policy",
   description:
-    "General BEEMUN refund policy foundation for review before launch.",
+    "How BEEMUN reviews refund and support requests.",
 }
 
 export default async function RefundPolicyPage({
@@ -18,15 +18,15 @@ export default async function RefundPolicyPage({
     <PublicPage
       countryCode={countryCode}
       eyebrow="Refund policy"
-      title="A simple refund foundation for customer support."
-      intro="Refund handling depends on order status, product type, fulfillment status, and support review. This page should be finalized before legal launch."
+      title="How BEEMUN reviews refund requests."
+      intro="BEEMUN reviews refund requests based on order status, fulfillment status, product condition, product type, and the information provided to support."
       primaryLink={{ href: "/contact", label: "Contact support" }}
       secondaryLink={{ href: "/shipping-returns", label: "Shipping and returns" }}
       sections={[
         {
           eyebrow: "Requests",
           title: "How to request help",
-          body: "Customers should contact BEEMUN support with order details, product information, and the reason for the request.",
+          body: "Contact BEEMUN with your order details, product name, photos if relevant, and a clear reason for the request. Faster, specific information helps support review the request.",
         },
         {
           eyebrow: "Review",
@@ -34,11 +34,12 @@ export default async function RefundPolicyPage({
           body: "Refund eligibility may depend on whether an item has shipped, whether it is unopened, whether it arrived damaged, and any product-specific limitations.",
         },
         {
-          eyebrow: "Placeholder",
-          title: "Needs final policy review",
-          body: "This is a general operational foundation and should be reviewed before it is used as the final refund policy.",
+          eyebrow: "Limits",
+          title: "When refunds may not apply",
+          body: "Refunds may be unavailable for opened, used, damaged-by-customer, customized, final-sale, or hygiene-sensitive items unless required by law or approved by BEEMUN support.",
         },
       ]}
+      note="This policy does not limit any rights customers may have under applicable consumer protection laws."
     />
   )
 }

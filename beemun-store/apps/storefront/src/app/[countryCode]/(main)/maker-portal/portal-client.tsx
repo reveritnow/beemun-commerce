@@ -435,7 +435,7 @@ export default function MakerPortalClient({
             : "No product uploads, orders, analytics, payouts, shipping, or inventory tools are available during application review."}
         </p>
         <button className="beemun-disabled-cta" type="button" disabled>
-          Add your first product - coming next
+          Product tools unavailable during application review
         </button>
       </article>
     </div>

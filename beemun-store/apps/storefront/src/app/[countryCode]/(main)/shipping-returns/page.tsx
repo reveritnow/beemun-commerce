@@ -39,7 +39,7 @@ export default async function ShippingReturnsPage({
           body: "If something arrives damaged or incorrect, keep the packaging and contact support with order details and photos where possible.",
         },
       ]}
-      note="This page is a general customer support foundation and should be reviewed before final legal or operational launch."
+      note="Shipping and return outcomes may vary by region, order status, product type, and applicable consumer protection rules."
     />
   )
 }

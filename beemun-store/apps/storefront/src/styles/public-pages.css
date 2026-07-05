@@ -460,6 +460,15 @@
   padding: 10px 12px;
 }
 
+.beemun-field-error {
+  color: #8b3f2b;
+  display: block;
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.35;
+  margin-top: 6px;
+}
+
 .beemun-inline-check {
   align-items: center;
   display: flex !important;

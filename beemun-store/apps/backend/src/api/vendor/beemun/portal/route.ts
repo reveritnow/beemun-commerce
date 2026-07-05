@@ -7,6 +7,7 @@ import {
   storeDocumentUpload,
   uploadFromDocument,
 } from "../document-storage"
+import { enforceRateLimit, rateLimitKeyFor } from "../rate-limit"
 
 const activeStatuses = [
   "draft",
@@ -113,6 +114,16 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
     return
   }
 
+  if (
+    !enforceRateLimit(req, res, {
+      key: rateLimitKeyFor(req, "vendor-portal-get", email),
+      limit: 120,
+      windowMs: 60_000,
+    })
+  ) {
+    return
+  }
+
   const vendor = await findVendorByEmail(marketplace, email)
 
   if (!vendor) {
@@ -215,6 +226,16 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
 
   if (!email) {
     res.status(400).json({ message: "Applicant email is required." })
+    return
+  }
+
+  if (
+    !enforceRateLimit(req, res, {
+      key: rateLimitKeyFor(req, `vendor-portal-${action || "action"}`, email),
+      limit: action === "document" ? 12 : 30,
+      windowMs: 60 * 60_000,
+    })
+  ) {
     return
   }
 
