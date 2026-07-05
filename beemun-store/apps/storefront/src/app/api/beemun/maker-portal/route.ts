@@ -6,18 +6,31 @@ const cleanBackendUrl = (url: string) => url.replace(/\/+$/, "")
 const backendUrl = () => process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL
 
 const responseData = async (response: Response) => {
-  const data = await response.json().catch(() => ({}))
+  const text = await response.text().catch(() => "")
+  const data = text
+    ? (() => {
+        try {
+          return JSON.parse(text)
+        } catch {
+          return {}
+        }
+      })()
+    : {}
   const message =
     typeof data?.message === "string" && data.message.trim()
       ? data.message.trim()
       : ""
 
   if (!response.ok && (!message || message.toLowerCase() === "an unknown error occurred.")) {
+    const raw = text.trim()
+
     return {
       ...data,
       message:
         response.status === 413
           ? "The upload is too large for the application portal. Please choose a smaller file."
+          : raw && raw.toLowerCase() !== "an unknown error occurred."
+          ? `BEEMUN backend error: ${raw.slice(0, 500)}`
           : `BEEMUN backend rejected the portal request with status ${response.status}. Please try again or contact BEEMUN.`,
     }
   }

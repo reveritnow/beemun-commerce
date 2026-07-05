@@ -4,8 +4,10 @@ import { getBeemunSession } from "../../../../lib/get-session"
 const cleanBackendUrl = (url: string) => url.replace(/\/+$/, "")
 
 const errorMessageFrom = async (response: Response) => {
+  const text = await response.text().catch(() => "")
+
   try {
-    const data = await response.json()
+    const data = text ? JSON.parse(text) : {}
     const message = data?.message || data?.error || data?.detail
 
     if (
@@ -22,7 +24,11 @@ const errorMessageFrom = async (response: Response) => {
         : `The maker application could not be submitted because the BEEMUN backend returned ${response.status}. Please try again or contact BEEMUN.`
     )
   } catch {
-    return `The maker application could not be submitted because the BEEMUN backend returned ${response.status}. Please try again or contact BEEMUN.`
+    const raw = text.trim()
+
+    return raw && raw.toLowerCase() !== "an unknown error occurred."
+      ? `BEEMUN backend error: ${raw.slice(0, 500)}`
+      : `The maker application could not be submitted because the BEEMUN backend returned ${response.status}. Please try again or contact BEEMUN.`
   }
 }
 
