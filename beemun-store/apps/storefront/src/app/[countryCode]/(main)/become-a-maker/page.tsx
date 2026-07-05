@@ -20,7 +20,9 @@ export default async function BecomeMakerPage({
   const user = (session as any)?.user
   const portalData = await getMakerPortalDataByEmail(user?.email)
   const startHref = user
-    ? portalData?.vendor
+    ? portalData?.vendor?.status === "approved"
+      ? `/${countryCode}/maker-dashboard`
+      : portalData?.vendor
       ? `/${countryCode}/maker-portal`
       : `/${countryCode}/maker-portal/apply`
     : `/${countryCode}/maker-portal/sign-in?callbackUrl=/${countryCode}/maker-portal/start`
@@ -56,7 +58,9 @@ export default async function BecomeMakerPage({
         <div className="beemun-maker-landing-cta">
           <p className="beemun-eyebrow">Start Maker Application</p>
           <h2>
-            {portalData?.vendor
+            {portalData?.vendor?.status === "approved"
+              ? "Your approved Maker Dashboard is ready."
+              : portalData?.vendor
               ? "Your maker application is waiting in My Application."
               : "Begin the guided BEEMUN maker review journey."}
           </h2>
@@ -66,7 +70,11 @@ export default async function BecomeMakerPage({
             tools unlock only after approval.
           </p>
           <Link className="beemun-btn-primary" href={startHref}>
-            {portalData?.vendor ? "Open My Application" : "Start Maker Application"}
+            {portalData?.vendor?.status === "approved"
+              ? "Open Maker Dashboard"
+              : portalData?.vendor
+              ? "Open My Application"
+              : "Start Maker Application"}
           </Link>
         </div>
       </section>
