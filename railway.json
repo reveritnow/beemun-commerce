@@ -5,7 +5,8 @@
     "dockerfilePath": "Dockerfile"
   },
   "deploy": {
-    "startCommand": "npm run deploy:prepare && npm run start",
+    "preDeployCommand": "npm run deploy:prepare",
+    "startCommand": "npm run start",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 300,
     "restartPolicyType": "ON_FAILURE",

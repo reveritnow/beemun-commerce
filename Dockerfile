@@ -15,7 +15,7 @@ FROM node:22-bookworm-slim AS runner
 
 WORKDIR /app/apps/backend/.medusa/server
 ENV NODE_ENV=production
-ENV PORT=9000
+ENV HOST=0.0.0.0
 
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates python3 make g++ && rm -rf /var/lib/apt/lists/*
 
