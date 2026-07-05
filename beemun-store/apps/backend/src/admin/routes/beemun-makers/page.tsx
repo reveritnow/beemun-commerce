@@ -1,5 +1,5 @@
 import { defineRouteConfig } from "@medusajs/admin-sdk"
-import { FormEvent, useEffect, useMemo, useState } from "react"
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react"
 import type { ReactNode } from "react"
 
 type VendorStatus = "submitted" | "under_review" | "approved" | "rejected"
@@ -12,6 +12,13 @@ type WorkspaceTab =
   | "timeline"
   | "notes"
   | "history"
+type DocumentFilter =
+  | "all"
+  | "pending"
+  | "verified"
+  | "rejected"
+  | "replacement"
+  | "missing"
 
 type VendorMetadata = {
   legal_business_name?: string | null
@@ -73,6 +80,15 @@ const workspaceTabs: Array<{ key: WorkspaceTab; label: string }> = [
   { key: "history", label: "History" },
 ]
 
+const documentFilters: Array<{ key: DocumentFilter; label: string }> = [
+  { key: "all", label: "All" },
+  { key: "pending", label: "Pending" },
+  { key: "verified", label: "Verified" },
+  { key: "rejected", label: "Rejected" },
+  { key: "replacement", label: "Replacement Requested" },
+  { key: "missing", label: "Missing" },
+]
+
 const statusLabels: Record<VendorStatus, string> = {
   submitted: "Submitted",
   under_review: "Under review",
@@ -106,6 +122,22 @@ const statusClass = (status: string) =>
 const documentStatusClass = (status: string) =>
   documentStatusClasses[status] ||
   "border-ui-border-base bg-ui-bg-subtle text-ui-fg-subtle"
+
+const documentStatusLabel = (document: Record<string, any>) => {
+  if (!hasStoredFile(document)) return "Missing"
+  if (document.status === "approved") return "Verified"
+  if (document.status === "needs_changes") return "Replacement Requested"
+  if (document.status === "rejected") return "Rejected"
+  return "Pending Review"
+}
+
+const documentStatusIcon = (document: Record<string, any>) => {
+  if (!hasStoredFile(document)) return "⚠"
+  if (document.status === "approved") return "✔"
+  if (document.status === "needs_changes") return "⚠"
+  if (document.status === "rejected") return "✖"
+  return "⏳"
+}
 
 const formatDate = (value?: string | null) => {
   if (!value) return "Not recorded"
@@ -151,6 +183,16 @@ const documentMime = (document: Record<string, any>) =>
 const hasStoredFile = (document: Record<string, any>) =>
   Boolean(documentFile(document) || document.metadata?.storage_status === "stored")
 
+const isIncompleteValue = (value: ReactNode) => {
+  return (
+    value === null ||
+    value === undefined ||
+    value === "" ||
+    value === "Not provided" ||
+    value === "Not recorded"
+  )
+}
+
 const completionFor = (vendor?: Vendor | null) => {
   if (!vendor) return 0
   const metadata = vendor.metadata || {}
@@ -185,7 +227,13 @@ const Badge = ({ children, className = "" }: { children: ReactNode; className?: 
 )
 
 const DetailRow = ({ label, value }: { label: string; value?: ReactNode }) => (
-  <div className="flex flex-col gap-y-1">
+  <div
+    className={`flex flex-col gap-y-1 rounded-md border px-3 py-2 ${
+      isIncompleteValue(value)
+        ? "border-amber-200 bg-amber-50"
+        : "border-transparent bg-ui-bg-subtle"
+    }`}
+  >
     <dt className="text-xs font-medium text-ui-fg-muted">{label}</dt>
     <dd className="whitespace-pre-wrap text-sm text-ui-fg-base">
       {value || "Not provided"}
@@ -193,13 +241,33 @@ const DetailRow = ({ label, value }: { label: string; value?: ReactNode }) => (
   </div>
 )
 
-const Section = ({ title, children }: { title: string; children: ReactNode }) => (
-  <details className="rounded-lg border border-ui-border-base bg-ui-bg-base p-4" open>
-    <summary className="cursor-pointer text-base font-semibold text-ui-fg-base">
+const Section = ({
+  title,
+  sectionKey,
+  expanded,
+  onToggle,
+  children,
+}: {
+  title: string
+  sectionKey: string
+  expanded: boolean
+  onToggle: (key: string) => void
+  children: ReactNode
+}) => (
+  <section className="rounded-lg border border-ui-border-base bg-ui-bg-base">
+    <button
+      type="button"
+      className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-base font-semibold text-ui-fg-base focus:outline-none focus:ring-2 focus:ring-ui-border-interactive"
+      aria-expanded={expanded}
+      onClick={() => onToggle(sectionKey)}
+    >
       {title}
-    </summary>
-    <div className="mt-4 grid gap-4">{children}</div>
-  </details>
+      <span className="text-xs font-medium text-ui-fg-muted">
+        {expanded ? "Collapse" : "Expand"}
+      </span>
+    </button>
+    {expanded && <div className="grid gap-4 border-t border-ui-border-base p-4">{children}</div>}
+  </section>
 )
 
 const MakerReviewPage = () => {
@@ -215,8 +283,14 @@ const MakerReviewPage = () => {
   const [taskTitle, setTaskTitle] = useState("")
   const [taskDescription, setTaskDescription] = useState("")
   const [documentNote, setDocumentNote] = useState<Record<string, string>>({})
+  const [documentFilter, setDocumentFilter] = useState<DocumentFilter>("all")
+  const [timelineNewestFirst, setTimelineNewestFirst] = useState(true)
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    business: true,
+  })
   const [message, setMessage] = useState("")
   const [error, setError] = useState("")
+  const adminMessageThreadRef = useRef<HTMLDivElement | null>(null)
 
   const selectedVendor = useMemo(
     () => vendors.find((vendor) => vendor.id === selectedId) || vendors[0],
@@ -233,12 +307,60 @@ const MakerReviewPage = () => {
   const missingRequiredDocuments = documents.filter(
     (document) => document.metadata?.required && !hasStoredFile(document)
   )
+  const pendingDocuments = documents.filter(
+    (document) => hasStoredFile(document) && ["submitted", "under_review", "draft"].includes(document.status || "draft")
+  )
+  const rejectedDocuments = documents.filter((document) => document.status === "rejected")
+  const replacementDocuments = documents.filter((document) => document.status === "needs_changes")
+  const verifiedDocuments = documents.filter((document) => document.status === "approved")
+  const unreadMessages = messages.filter(
+    (item) => item.author_type === "applicant" && item.metadata?.read_by_admin !== true
+  )
+  const filteredDocuments = documents.filter((document) => {
+    if (documentFilter === "all") return true
+    if (documentFilter === "pending") {
+      return hasStoredFile(document) && ["submitted", "under_review", "draft"].includes(document.status || "draft")
+    }
+    if (documentFilter === "verified") return document.status === "approved"
+    if (documentFilter === "rejected") return document.status === "rejected"
+    if (documentFilter === "replacement") return document.status === "needs_changes"
+    return !hasStoredFile(document)
+  })
   const latestActivity =
     [...reviewEvents, ...messages, ...tasks, ...documents].sort(
       (a, b) =>
         new Date(b.updated_at || b.created_at || b.submitted_at || 0).getTime() -
         new Date(a.updated_at || a.created_at || a.submitted_at || 0).getTime()
     )[0] || null
+  const riskFlags = [
+    missingRequiredDocuments.length
+      ? `${missingRequiredDocuments.length} required document missing`
+      : null,
+    pendingDocuments.length
+      ? `${pendingDocuments.length} document pending review`
+      : null,
+    openTasks.length ? `${openTasks.length} open task` : null,
+    rejectedDocuments.length ? `${rejectedDocuments.length} rejected document` : null,
+    selectedVendor?.status === "rejected" ? "Application rejected" : null,
+  ].filter(Boolean)
+  const nextRecommendedAction = (() => {
+    if (!selectedVendor) return "Select an application."
+    if (selectedVendor.status === "submitted") return "Move application under review."
+    if (missingRequiredDocuments.length) return "Request missing required documents."
+    if (replacementDocuments.length) return "Wait for replacement documents or message the maker."
+    if (pendingDocuments.length) return "Review pending documents."
+    if (openTasks.length) return "Wait for the maker to complete open tasks."
+    if (selectedVendor.status === "under_review") return "Approve or reject after final checks."
+    if (selectedVendor.status === "approved") return "No approval action needed."
+    return "Review the decision notes and maker replies."
+  })()
+
+  const toggleSection = (key: string) => {
+    setExpandedSections((current) => ({
+      ...current,
+      [key]: !current[key],
+    }))
+  }
 
   const loadVendors = async (status: VendorStatus) => {
     setLoading(true)
@@ -273,6 +395,12 @@ const MakerReviewPage = () => {
   useEffect(() => {
     loadVendors(activeStatus)
   }, [activeStatus])
+
+  useEffect(() => {
+    if (activeWorkspaceTab === "messages" && adminMessageThreadRef.current) {
+      adminMessageThreadRef.current.scrollTop = adminMessageThreadRef.current.scrollHeight
+    }
+  }, [activeWorkspaceTab, messages.length])
 
   const postAction = async (
     vendor: Vendor,
@@ -394,9 +522,76 @@ const MakerReviewPage = () => {
     )
   }
 
+  const renderStickyActions = () => {
+    if (!selectedVendor) return null
+
+    return (
+      <div className="sticky top-[104px] z-10 mb-4 rounded-xl border border-ui-border-base bg-ui-bg-base/95 p-3 shadow-sm backdrop-blur">
+        <div className="flex flex-col gap-3 2xl:flex-row 2xl:items-center 2xl:justify-between">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-ui-fg-muted">
+              Next recommended action
+            </p>
+            <p className="text-sm font-medium text-ui-fg-base">{nextRecommendedAction}</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              className="min-w-[240px] rounded-md border border-ui-border-base bg-ui-bg-base px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ui-border-interactive"
+              value={rejectReason}
+              onChange={(event) => setRejectReason(event.target.value)}
+              placeholder="Rejection reason if rejecting"
+              aria-label="Rejection reason"
+            />
+            <button
+              type="button"
+              className="rounded-md border border-ui-border-base bg-ui-bg-base px-3 py-2 text-sm font-medium text-ui-fg-base hover:bg-ui-bg-subtle focus:outline-none focus:ring-2 focus:ring-ui-border-interactive disabled:opacity-50"
+              disabled={saving || selectedVendor.status === "under_review"}
+              onClick={() => transitionVendor(selectedVendor, "under-review")}
+            >
+              Under Review
+            </button>
+            <button
+              type="button"
+              className="rounded-md border border-ui-border-base bg-ui-bg-base px-3 py-2 text-sm font-medium text-ui-fg-base hover:bg-ui-bg-subtle focus:outline-none focus:ring-2 focus:ring-ui-border-interactive"
+              onClick={() => {
+                setActiveWorkspaceTab("documents")
+                setDocumentFilter(missingRequiredDocuments.length ? "missing" : "pending")
+              }}
+            >
+              Request Documents
+            </button>
+            <button
+              type="button"
+              className="rounded-md border border-ui-border-base bg-ui-bg-base px-3 py-2 text-sm font-medium text-ui-fg-base hover:bg-ui-bg-subtle focus:outline-none focus:ring-2 focus:ring-ui-border-interactive"
+              onClick={() => setActiveWorkspaceTab("tasks")}
+            >
+              Request Changes
+            </button>
+            <button
+              type="button"
+              className="rounded-md bg-ui-bg-interactive px-3 py-2 text-sm font-medium text-ui-fg-on-color focus:outline-none focus:ring-2 focus:ring-ui-border-interactive disabled:opacity-50"
+              disabled={saving || selectedVendor.status === "approved"}
+              onClick={() => transitionVendor(selectedVendor, "approve")}
+            >
+              Approve
+            </button>
+            <button
+              type="button"
+              className="rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-red-300 disabled:opacity-50"
+              disabled={saving || selectedVendor.status === "rejected"}
+              onClick={() => transitionVendor(selectedVendor, "reject")}
+            >
+              Reject
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   const renderOverview = () => (
     <div className="grid gap-4 lg:grid-cols-3">
-      <div className="rounded-xl border border-ui-border-base bg-ui-bg-base p-5 lg:col-span-2">
+      <div className="rounded-xl border border-ui-border-base bg-ui-bg-base p-5 lg:col-span-3">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-ui-fg-muted">
@@ -416,7 +611,7 @@ const MakerReviewPage = () => {
           )}
         </div>
 
-        <div className="mt-6 grid gap-3 md:grid-cols-4">
+        <div className="mt-6 grid gap-3 md:grid-cols-5">
           <div className="rounded-lg bg-ui-bg-subtle p-4">
             <span className="text-xs text-ui-fg-muted">Completion</span>
             <strong className="mt-1 block text-xl text-ui-fg-base">
@@ -424,9 +619,9 @@ const MakerReviewPage = () => {
             </strong>
           </div>
           <div className="rounded-lg bg-ui-bg-subtle p-4">
-            <span className="text-xs text-ui-fg-muted">Documents</span>
+            <span className="text-xs text-ui-fg-muted">Pending docs</span>
             <strong className="mt-1 block text-xl text-ui-fg-base">
-              {storedDocuments.length}/{documents.length}
+              {pendingDocuments.length}
             </strong>
           </div>
           <div className="rounded-lg bg-ui-bg-subtle p-4">
@@ -436,53 +631,21 @@ const MakerReviewPage = () => {
             </strong>
           </div>
           <div className="rounded-lg bg-ui-bg-subtle p-4">
-            <span className="text-xs text-ui-fg-muted">Messages</span>
+            <span className="text-xs text-ui-fg-muted">Unread messages</span>
             <strong className="mt-1 block text-xl text-ui-fg-base">
-              {messages.length}
+              {unreadMessages.length}
+            </strong>
+          </div>
+          <div className="rounded-lg bg-ui-bg-subtle p-4">
+            <span className="text-xs text-ui-fg-muted">Risk flags</span>
+            <strong className="mt-1 block text-xl text-ui-fg-base">
+              {riskFlags.length}
             </strong>
           </div>
         </div>
       </div>
 
-      <div className="rounded-xl border border-ui-border-base bg-ui-bg-base p-5">
-        <p className="text-xs font-medium uppercase tracking-wide text-ui-fg-muted">
-          Quick actions
-        </p>
-        <div className="mt-4 grid gap-2">
-          <button
-            type="button"
-            className="rounded-md border border-ui-border-base bg-ui-bg-base px-3 py-2 text-sm font-medium text-ui-fg-base disabled:opacity-50"
-            disabled={saving || selectedVendor?.status === "under_review"}
-            onClick={() => selectedVendor && transitionVendor(selectedVendor, "under-review")}
-          >
-            Mark under review
-          </button>
-          <button
-            type="button"
-            className="rounded-md bg-ui-bg-interactive px-3 py-2 text-sm font-medium text-ui-fg-on-color disabled:opacity-50"
-            disabled={saving || selectedVendor?.status === "approved"}
-            onClick={() => selectedVendor && transitionVendor(selectedVendor, "approve")}
-          >
-            Approve
-          </button>
-          <button
-            type="button"
-            className="rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-            disabled={saving || selectedVendor?.status === "rejected"}
-            onClick={() => selectedVendor && transitionVendor(selectedVendor, "reject")}
-          >
-            Reject
-          </button>
-        </div>
-        <textarea
-          className="mt-3 min-h-20 w-full rounded-md border border-ui-border-base bg-ui-bg-base px-3 py-2 text-sm"
-          value={rejectReason}
-          onChange={(event) => setRejectReason(event.target.value)}
-          placeholder="Reason for rejection, if needed"
-        />
-      </div>
-
-      <div className="rounded-xl border border-ui-border-base bg-ui-bg-base p-5 lg:col-span-3">
+      <div className="rounded-xl border border-ui-border-base bg-ui-bg-base p-5 lg:col-span-2">
         <p className="text-xs font-medium uppercase tracking-wide text-ui-fg-muted">
           Latest activity
         </p>
@@ -497,12 +660,35 @@ const MakerReviewPage = () => {
           </p>
         )}
       </div>
+      <div className="rounded-xl border border-ui-border-base bg-ui-bg-base p-5">
+        <p className="text-xs font-medium uppercase tracking-wide text-ui-fg-muted">
+          What needs attention
+        </p>
+        <div className="mt-3 grid gap-2">
+          {riskFlags.length ? (
+            riskFlags.map((flag) => (
+              <p key={String(flag)} className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+                {flag}
+              </p>
+            ))
+          ) : (
+            <p className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+              No obvious blockers.
+            </p>
+          )}
+        </div>
+      </div>
     </div>
   )
 
   const renderApplication = () => (
     <div className="grid gap-4">
-      <Section title="Business">
+      <Section
+        title="Business"
+        sectionKey="business"
+        expanded={expandedSections.business === true}
+        onToggle={toggleSection}
+      >
         <div className="grid gap-4 md:grid-cols-2">
           <DetailRow label="Legal business name" value={metadata.legal_business_name} />
           <DetailRow label="Brand/public name" value={metadata.brand_public_name || selectedVendor?.name} />
@@ -512,7 +698,12 @@ const MakerReviewPage = () => {
           <DetailRow label="Country" value={metadata.country_name || selectedVendor?.country_code} />
         </div>
       </Section>
-      <Section title="Owner">
+      <Section
+        title="Owner"
+        sectionKey="owner"
+        expanded={expandedSections.owner === true}
+        onToggle={toggleSection}
+      >
         <div className="grid gap-4 md:grid-cols-2">
           <DetailRow label="Primary contact" value={metadata.contact_name} />
           <DetailRow label="Email" value={selectedVendor?.email} />
@@ -520,7 +711,12 @@ const MakerReviewPage = () => {
           <DetailRow label="Submitted" value={formatDate(selectedVendor?.submitted_at || selectedVendor?.created_at)} />
         </div>
       </Section>
-      <Section title="Address">
+      <Section
+        title="Address"
+        sectionKey="address"
+        expanded={expandedSections.address === true}
+        onToggle={toggleSection}
+      >
         <div className="grid gap-4 md:grid-cols-2">
           <DetailRow label="Address line 1" value={address.line_1} />
           <DetailRow label="Address line 2" value={address.line_2} />
@@ -530,7 +726,12 @@ const MakerReviewPage = () => {
           <DetailRow label="Country" value={metadata.country_name || "India"} />
         </div>
       </Section>
-      <Section title="Policies and ZPS fit">
+      <Section
+        title="Policies and ZPS fit"
+        sectionKey="policies"
+        expanded={expandedSections.policies === true}
+        onToggle={toggleSection}
+      >
         <div className="grid gap-4">
           <DetailRow label="Product categories" value={categoriesText(metadata.product_categories)} />
           <DetailRow label="Maker story" value={selectedVendor?.description} />
@@ -541,7 +742,12 @@ const MakerReviewPage = () => {
           <DetailRow label="Applicant notes" value={metadata.notes} />
         </div>
       </Section>
-      <Section title="Agreement">
+      <Section
+        title="Agreement"
+        sectionKey="agreement"
+        expanded={expandedSections.agreement === true}
+        onToggle={toggleSection}
+      >
         <div className="grid gap-4 md:grid-cols-3">
           <DetailRow label="Accepted" value={metadata.agreement_accepted ? "Yes" : "No"} />
           <DetailRow label="Accepted at" value={formatDate(metadata.agreement_accepted_at)} />
@@ -554,143 +760,153 @@ const MakerReviewPage = () => {
   const renderDocuments = () => (
     <div className="rounded-xl border border-ui-border-base bg-ui-bg-base">
       <div className="border-b border-ui-border-base px-5 py-4">
-        <h3 className="text-lg font-semibold text-ui-fg-base">Document review</h3>
-        <p className="text-sm text-ui-fg-subtle">
-          Verify, reject, or request replacement for uploaded maker documents.
-        </p>
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-ui-fg-base">Document review</h3>
+            <p className="text-sm text-ui-fg-subtle">
+              Review required files first. Replacement requests create a maker task and message.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2" role="tablist" aria-label="Document filters">
+            {documentFilters.map((filter) => (
+              <button
+                key={filter.key}
+                type="button"
+                className={`rounded-md border px-3 py-2 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-ui-border-interactive ${
+                  documentFilter === filter.key
+                    ? "border-ui-border-interactive bg-ui-bg-interactive text-ui-fg-on-color"
+                    : "border-ui-border-base bg-ui-bg-base text-ui-fg-base hover:bg-ui-bg-subtle"
+                }`}
+                aria-pressed={documentFilter === filter.key}
+                onClick={() => setDocumentFilter(filter.key)}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
-      {documents.length ? (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[860px] border-collapse text-left text-sm">
-            <thead className="bg-ui-bg-subtle text-xs uppercase tracking-wide text-ui-fg-muted">
-              <tr>
-                <th className="px-4 py-3 font-medium">Type</th>
-                <th className="px-4 py-3 font-medium">File</th>
-                <th className="px-4 py-3 font-medium">Uploaded</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {documents.map((document) => (
-                <tr key={document.id} className="border-t border-ui-border-base align-top">
-                  <td className="px-4 py-4">
-                    <div className="flex flex-col gap-2">
-                      <span className="font-medium text-ui-fg-base">{document.title}</span>
-                      <span className="text-xs text-ui-fg-muted">
-                        {documentTypeLabel(document.document_type)}
-                      </span>
-                      <Badge
-                        className={
-                          document.metadata?.required
-                            ? "border-orange-200 bg-orange-50 text-orange-700"
-                            : "border-ui-border-base bg-ui-bg-subtle text-ui-fg-subtle"
-                        }
-                      >
-                        {document.metadata?.required ? "Required" : "Optional"}
-                      </Badge>
-                    </div>
-                  </td>
-                  <td className="px-4 py-4">
-                    {hasStoredFile(document) ? (
-                      <div className="flex flex-col gap-1">
-                        <span className="font-medium text-ui-fg-base">
-                          {documentFileLabel(document)}
-                        </span>
-                        <span className="text-xs text-ui-fg-muted">
-                          {documentMime(document)} / {formatSize(documentFileSize(document))}
-                        </span>
-                        {document.metadata?.applicant_note && (
-                          <span className="text-xs text-ui-fg-subtle">
-                            Note: {document.metadata.applicant_note}
-                          </span>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-ui-fg-subtle">No file uploaded</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-4 text-ui-fg-subtle">
-                    {formatDate(documentFile(document)?.created_at || document.updated_at)}
-                  </td>
-                  <td className="px-4 py-4">
+      {filteredDocuments.length ? (
+        <div className="grid gap-4 p-5 xl:grid-cols-2">
+          {filteredDocuments.map((document) => (
+            <article
+              key={document.id}
+              className="rounded-xl border border-ui-border-base bg-ui-bg-base p-4 shadow-sm transition hover:border-ui-border-strong"
+            >
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Badge className={documentStatusClass(document.status)}>
-                      {document.status?.replace(/_/g, " ") || "missing"}
+                      {documentStatusIcon(document)} {documentStatusLabel(document)}
                     </Badge>
-                  </td>
-                  <td className="px-4 py-4">
-                    <div className="flex min-w-[260px] flex-col gap-2">
-                      {hasStoredFile(document) ? (
-                        <div className="flex flex-wrap gap-2">
-                          <a
-                            className="rounded-md border border-ui-border-base px-3 py-2 text-xs font-medium text-ui-fg-base"
-                            href={`/admin/beemun/vendors/${selectedVendor?.id}/documents/${document.id}/file`}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            View
-                          </a>
-                          <a
-                            className="rounded-md border border-ui-border-base px-3 py-2 text-xs font-medium text-ui-fg-base"
-                            href={`/admin/beemun/vendors/${selectedVendor?.id}/documents/${document.id}/file?download=1`}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            Download
-                          </a>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-ui-fg-muted">
-                          Request upload through a replacement task.
-                        </span>
-                      )}
-                      <textarea
-                        className="min-h-16 rounded-md border border-ui-border-base bg-ui-bg-base px-3 py-2 text-xs"
-                        value={documentNote[document.id] || ""}
-                        onChange={(event) =>
-                          setDocumentNote((current) => ({
-                            ...current,
-                            [document.id]: event.target.value,
-                          }))
-                        }
-                        placeholder="Optional note for this document"
-                      />
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          className="rounded-md bg-green-600 px-3 py-2 text-xs font-medium text-white disabled:opacity-50"
-                          disabled={saving || !hasStoredFile(document)}
-                          onClick={() => actOnDocument(document, "verify")}
-                        >
-                          Mark verified
-                        </button>
-                        <button
-                          type="button"
-                          className="rounded-md bg-red-600 px-3 py-2 text-xs font-medium text-white disabled:opacity-50"
-                          disabled={saving || !hasStoredFile(document)}
-                          onClick={() => actOnDocument(document, "reject")}
-                        >
-                          Reject
-                        </button>
-                        <button
-                          type="button"
-                          className="rounded-md border border-ui-border-base px-3 py-2 text-xs font-medium text-ui-fg-base disabled:opacity-50"
-                          disabled={saving}
-                          onClick={() => actOnDocument(document, "request_replacement")}
-                        >
-                          Request replacement
-                        </button>
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    <Badge
+                      className={
+                        document.metadata?.required
+                          ? "border-orange-200 bg-orange-50 text-orange-700"
+                          : "border-ui-border-base bg-ui-bg-subtle text-ui-fg-subtle"
+                      }
+                    >
+                      {document.metadata?.required ? "Required" : "Optional"}
+                    </Badge>
+                  </div>
+                  <h4 className="mt-3 truncate text-base font-semibold text-ui-fg-base">
+                    {document.title}
+                  </h4>
+                  <p className="text-xs text-ui-fg-muted">
+                    {documentTypeLabel(document.document_type)}
+                  </p>
+                </div>
+                <span className="text-xs text-ui-fg-muted">
+                  Uploaded {formatDate(documentFile(document)?.created_at || document.updated_at)}
+                </span>
+              </div>
+
+              <div className="mt-4 rounded-lg bg-ui-bg-subtle p-3">
+                {hasStoredFile(document) ? (
+                  <div className="grid gap-1">
+                    <span className="truncate text-sm font-medium text-ui-fg-base">
+                      {documentFileLabel(document)}
+                    </span>
+                    <span className="text-xs text-ui-fg-muted">
+                      {documentMime(document)} / {formatSize(documentFileSize(document))}
+                    </span>
+                    {document.metadata?.applicant_note && (
+                      <span className="text-xs text-ui-fg-subtle">
+                        Maker note: {document.metadata.applicant_note}
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-ui-fg-subtle">
+                    No file is attached yet. Request the missing document from the maker.
+                  </p>
+                )}
+              </div>
+
+              <textarea
+                className="mt-3 min-h-16 w-full rounded-md border border-ui-border-base bg-ui-bg-base px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-ui-border-interactive"
+                value={documentNote[document.id] || ""}
+                onChange={(event) =>
+                  setDocumentNote((current) => ({
+                    ...current,
+                    [document.id]: event.target.value,
+                  }))
+                }
+                placeholder="Optional note for this document action"
+              />
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                {hasStoredFile(document) && (
+                  <>
+                    <a
+                      className="rounded-md border border-ui-border-base px-3 py-2 text-xs font-medium text-ui-fg-base hover:bg-ui-bg-subtle focus:outline-none focus:ring-2 focus:ring-ui-border-interactive"
+                      href={`/admin/beemun/vendors/${selectedVendor?.id}/documents/${document.id}/file`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      View
+                    </a>
+                    <a
+                      className="rounded-md border border-ui-border-base px-3 py-2 text-xs font-medium text-ui-fg-base hover:bg-ui-bg-subtle focus:outline-none focus:ring-2 focus:ring-ui-border-interactive"
+                      href={`/admin/beemun/vendors/${selectedVendor?.id}/documents/${document.id}/file?download=1`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Download
+                    </a>
+                  </>
+                )}
+                <button
+                  type="button"
+                  className="rounded-md bg-green-600 px-3 py-2 text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-green-300 disabled:opacity-50"
+                  disabled={saving || !hasStoredFile(document)}
+                  onClick={() => actOnDocument(document, "verify")}
+                >
+                  Mark verified
+                </button>
+                <button
+                  type="button"
+                  className="rounded-md bg-red-600 px-3 py-2 text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-red-300 disabled:opacity-50"
+                  disabled={saving || !hasStoredFile(document)}
+                  onClick={() => actOnDocument(document, "reject")}
+                >
+                  Reject
+                </button>
+                <button
+                  type="button"
+                  className="rounded-md border border-ui-border-base px-3 py-2 text-xs font-medium text-ui-fg-base hover:bg-ui-bg-subtle focus:outline-none focus:ring-2 focus:ring-ui-border-interactive disabled:opacity-50"
+                  disabled={saving}
+                  onClick={() => actOnDocument(document, "request_replacement")}
+                >
+                  Request replacement
+                </button>
+              </div>
+            </article>
+          ))}
         </div>
       ) : (
         <p className="p-5 text-sm text-ui-fg-subtle">
-          No document records exist for this application yet.
+          No documents match this filter.
         </p>
       )}
     </div>
@@ -704,10 +920,11 @@ const MakerReviewPage = () => {
           Applicant-visible messages only. Private notes stay in Review Notes.
         </p>
       </div>
-      <div className="flex-1 space-y-3 overflow-y-auto p-5">
+      <div className="flex-1 space-y-3 overflow-y-auto p-5" ref={adminMessageThreadRef}>
         {messages.length ? (
           messages.map((item) => {
             const isAdmin = item.author_type === "admin"
+            const isRead = isAdmin || item.metadata?.read_by_admin === true
             return (
               <div
                 key={item.id}
@@ -721,7 +938,7 @@ const MakerReviewPage = () => {
                   }`}
                 >
                   <div className="mb-1 text-xs opacity-80">
-                    {isAdmin ? "BEEMUN Review" : "Maker"} / {formatDate(item.created_at)}
+                    {isAdmin ? "BEEMUN Review" : "Maker"} / {formatDate(item.created_at)} / {isRead ? "Read" : "Unread"}
                   </div>
                   <p className="whitespace-pre-wrap">{item.body}</p>
                 </div>
@@ -741,13 +958,24 @@ const MakerReviewPage = () => {
           onChange={(event) => setAdminMessage(event.target.value)}
           placeholder="Send a message to the maker"
         />
-        <button
-          type="submit"
-          className="w-fit rounded-md bg-ui-bg-interactive px-3 py-2 text-sm font-medium text-ui-fg-on-color disabled:opacity-50"
-          disabled={saving || !adminMessage.trim()}
-        >
-          {saving ? "Sending..." : "Send message"}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            className="rounded-md border border-ui-border-base bg-ui-bg-subtle px-3 py-2 text-sm font-medium text-ui-fg-muted"
+            disabled
+            aria-disabled="true"
+            title="Attachments are handled through document requests in this stage."
+          >
+            Attachments via Documents
+          </button>
+          <button
+            type="submit"
+            className="rounded-md bg-ui-bg-interactive px-3 py-2 text-sm font-medium text-ui-fg-on-color focus:outline-none focus:ring-2 focus:ring-ui-border-interactive disabled:opacity-50"
+            disabled={saving || !adminMessage.trim()}
+          >
+            {saving ? "Sending..." : "Send message"}
+          </button>
+        </div>
       </form>
     </div>
   )
@@ -759,7 +987,14 @@ const MakerReviewPage = () => {
         <div className="mt-4 grid gap-3">
           {tasks.length ? (
             tasks.map((task) => (
-              <div key={task.id} className="rounded-lg border border-ui-border-base p-4">
+              <div
+                key={task.id}
+                className={`rounded-lg border p-4 transition ${
+                  task.status === "completed"
+                    ? "border-green-200 bg-green-50/60"
+                    : "border-ui-border-base bg-ui-bg-base hover:border-ui-border-strong"
+                }`}
+              >
                 <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
                   <div>
                     <Badge
@@ -775,10 +1010,15 @@ const MakerReviewPage = () => {
                     <p className="mt-1 text-sm text-ui-fg-subtle">
                       {task.description || "No extra detail provided."}
                     </p>
+                    <div className="mt-3 flex flex-wrap gap-2 text-xs text-ui-fg-muted">
+                      <span>Requested {formatDate(task.created_at)}</span>
+                      <span>By {task.requested_by_user_id || "BEEMUN"}</span>
+                      {task.status === "completed" && (
+                        <span>Completed {formatDate(task.completed_at || task.updated_at)}</span>
+                      )}
+                    </div>
                   </div>
-                  <span className="text-xs text-ui-fg-muted">
-                    {formatDate(task.created_at)}
-                  </span>
+                  <span className="text-xs text-ui-fg-muted">{task.id}</span>
                 </div>
               </div>
             ))
@@ -816,24 +1056,40 @@ const MakerReviewPage = () => {
 
   const renderTimeline = () => {
     const events = [
+      selectedVendor
+        ? {
+            id: `submitted-${selectedVendor.id}`,
+            title: "Application submitted",
+            body: selectedVendor.email,
+            date: selectedVendor.submitted_at || selectedVendor.created_at,
+            source: "Application",
+          }
+        : null,
       ...reviewEvents.map((event) => ({
         id: event.id,
-        title: event.reason || `Status: ${event.to_status}`,
+        title:
+          event.metadata?.source === "document_review"
+            ? `Document ${event.metadata?.action?.replace(/_/g, " ") || "reviewed"}`
+            : event.reason || `Status changed to ${event.to_status}`,
         body: event.notes,
         date: event.created_at,
-        source: "Review",
+        source: event.metadata?.source === "document_review" ? "Document" : "Review",
       })),
       ...documents.map((document) => ({
         id: `doc-${document.id}`,
-        title: `${document.title} ${hasStoredFile(document) ? "uploaded" : "recorded"}`,
-        body: document.status?.replace(/_/g, " "),
+        title: hasStoredFile(document)
+          ? `${document.title}: ${documentStatusLabel(document)}`
+          : `${document.title}: missing`,
+        body: hasStoredFile(document)
+          ? `${documentFileLabel(document)} / ${formatSize(documentFileSize(document))}`
+          : "No uploaded file",
         date: document.updated_at || document.created_at,
         source: "Document",
       })),
       ...tasks.map((task) => ({
         id: `task-${task.id}`,
-        title: task.title,
-        body: task.status,
+        title: task.status === "completed" ? `Task completed: ${task.title}` : `Task created: ${task.title}`,
+        body: task.description || task.status,
         date: task.updated_at || task.created_at,
         source: "Task",
       })),
@@ -844,11 +1100,30 @@ const MakerReviewPage = () => {
         date: item.created_at,
         source: "Message",
       })),
-    ].sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime())
+    ]
+      .filter(Boolean)
+      .sort((a: any, b: any) => {
+        const diff = new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()
+        return timelineNewestFirst ? diff : -diff
+      }) as Array<Record<string, any>>
 
     return (
       <div className="rounded-xl border border-ui-border-base bg-ui-bg-base p-5">
-        <h3 className="text-lg font-semibold text-ui-fg-base">Review timeline</h3>
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-ui-fg-base">Review timeline</h3>
+            <p className="text-sm text-ui-fg-subtle">
+              Single source of truth for application, document, task, message, and decision activity.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="w-fit rounded-md border border-ui-border-base px-3 py-2 text-sm font-medium text-ui-fg-base hover:bg-ui-bg-subtle focus:outline-none focus:ring-2 focus:ring-ui-border-interactive"
+            onClick={() => setTimelineNewestFirst((current) => !current)}
+          >
+            {timelineNewestFirst ? "Newest first" : "Oldest first"}
+          </button>
+        </div>
         <div className="mt-5 grid gap-4">
           {events.length ? (
             events.map((event) => (
@@ -883,10 +1158,20 @@ const MakerReviewPage = () => {
     <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
       <div className="rounded-xl border border-ui-border-base bg-ui-bg-base p-5">
         <h3 className="text-lg font-semibold text-ui-fg-base">Private review notes</h3>
+        <p className="mt-1 text-sm text-ui-fg-subtle">
+          Admin-only context. Markdown-style bullets and links are preserved as written.
+        </p>
         <div className="mt-4 grid gap-3">
           {(metadata.review_notes || []).length ? (
-            (metadata.review_notes || []).map((note) => (
+            [...(metadata.review_notes || [])]
+              .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+              .map((note) => (
               <div key={note.id || note.created_at} className="rounded-lg bg-ui-bg-subtle p-4">
+                {note.pinned && (
+                  <Badge className="mb-2 border-blue-200 bg-blue-50 text-blue-700">
+                    Pinned
+                  </Badge>
+                )}
                 <p className="whitespace-pre-wrap text-sm text-ui-fg-base">{note.note}</p>
                 <p className="mt-2 text-xs text-ui-fg-muted">{formatDate(note.created_at)}</p>
               </div>
@@ -904,7 +1189,7 @@ const MakerReviewPage = () => {
           className="mt-4 min-h-32 w-full rounded-md border border-ui-border-base bg-ui-bg-base px-3 py-2 text-sm"
           value={reviewNote}
           onChange={(event) => setReviewNote(event.target.value)}
-          placeholder="Internal note. The maker will not see this."
+          placeholder="Internal note. Supports plain markdown-style formatting. The maker will not see this."
         />
         <button
           type="submit"
@@ -1072,25 +1357,29 @@ const MakerReviewPage = () => {
 
         <main className="min-w-0">
           {selectedVendor && (
-            <nav
-              className="mb-4 flex gap-2 overflow-x-auto rounded-xl border border-ui-border-base bg-ui-bg-base p-2"
-              aria-label="Maker review workspace"
-            >
-              {workspaceTabs.map((tab) => (
-                <button
-                  key={tab.key}
-                  type="button"
-                  className={`whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium ${
-                    activeWorkspaceTab === tab.key
-                      ? "bg-ui-bg-interactive text-ui-fg-on-color"
-                      : "text-ui-fg-subtle hover:bg-ui-bg-subtle hover:text-ui-fg-base"
-                  }`}
-                  onClick={() => setActiveWorkspaceTab(tab.key)}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </nav>
+            <>
+              <nav
+                className="mb-4 flex gap-2 overflow-x-auto rounded-xl border border-ui-border-base bg-ui-bg-base p-2"
+                aria-label="Maker review workspace"
+              >
+                {workspaceTabs.map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    className={`whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-ui-border-interactive ${
+                      activeWorkspaceTab === tab.key
+                        ? "bg-ui-bg-interactive text-ui-fg-on-color"
+                        : "text-ui-fg-subtle hover:bg-ui-bg-subtle hover:text-ui-fg-base"
+                    }`}
+                    aria-current={activeWorkspaceTab === tab.key ? "page" : undefined}
+                    onClick={() => setActiveWorkspaceTab(tab.key)}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </nav>
+              {renderStickyActions()}
+            </>
           )}
 
           {renderWorkspace()}
