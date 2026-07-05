@@ -14,6 +14,7 @@ create table if not exists "beemun_vendor_document_file" (
   "original_filename" text not null,
   "mime_type" text not null,
   "file_size" numeric not null,
+  "raw_file_size" jsonb null,
   "content_base64" text not null,
   "metadata" jsonb null,
   "created_at" timestamptz not null default now(),
@@ -21,6 +22,48 @@ create table if not exists "beemun_vendor_document_file" (
   "deleted_at" timestamptz null,
   constraint "beemun_vendor_document_file_pkey" primary key ("id")
 );
+
+alter table if exists "beemun_vendor_document_file"
+  add column if not exists "id" text;
+
+alter table if exists "beemun_vendor_document_file"
+  add column if not exists "document_id" text;
+
+alter table if exists "beemun_vendor_document_file"
+  add column if not exists "vendor_id" text;
+
+alter table if exists "beemun_vendor_document_file"
+  add column if not exists "storage_provider" text default 'database_mvp';
+
+alter table if exists "beemun_vendor_document_file"
+  add column if not exists "storage_key" text;
+
+alter table if exists "beemun_vendor_document_file"
+  add column if not exists "original_filename" text;
+
+alter table if exists "beemun_vendor_document_file"
+  add column if not exists "mime_type" text;
+
+alter table if exists "beemun_vendor_document_file"
+  add column if not exists "file_size" numeric;
+
+alter table if exists "beemun_vendor_document_file"
+  add column if not exists "raw_file_size" jsonb;
+
+alter table if exists "beemun_vendor_document_file"
+  add column if not exists "content_base64" text;
+
+alter table if exists "beemun_vendor_document_file"
+  add column if not exists "metadata" jsonb;
+
+alter table if exists "beemun_vendor_document_file"
+  add column if not exists "created_at" timestamptz default now();
+
+alter table if exists "beemun_vendor_document_file"
+  add column if not exists "updated_at" timestamptz default now();
+
+alter table if exists "beemun_vendor_document_file"
+  add column if not exists "deleted_at" timestamptz;
 
 create index if not exists "IDX_beemun_vendor_document_file_document"
   on "beemun_vendor_document_file" ("document_id")
