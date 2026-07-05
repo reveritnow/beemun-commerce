@@ -34,6 +34,18 @@ export const VENDOR_DOCUMENT_STATUSES = [
   "expired",
 ]
 
+export const VENDOR_APPLICATION_MESSAGE_AUTHOR_TYPES = [
+  "admin",
+  "applicant",
+  "system",
+]
+
+export const VENDOR_APPLICATION_TASK_STATUSES = [
+  "pending",
+  "completed",
+  "cancelled",
+]
+
 export const VENDOR_PRODUCT_RELATIONSHIP_TYPES = [
   "maker",
   "brand_owner",

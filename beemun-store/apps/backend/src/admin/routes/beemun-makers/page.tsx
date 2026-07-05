@@ -1,10 +1,16 @@
 import { defineRouteConfig } from "@medusajs/admin-sdk"
-import { ChangeEvent, useEffect, useMemo, useState } from "react"
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react"
+import type { ReactNode } from "react"
 
 type VendorStatus = "submitted" | "under_review" | "approved" | "rejected"
 
 type VendorMetadata = {
+  legal_business_name?: string | null
+  brand_public_name?: string | null
+  business_type?: string | null
+  gstin?: string | null
   application_country?: string | null
+  country_name?: string | null
   contact_name?: string | null
   website_or_instagram?: string | null
   product_categories?: string[] | string | null
@@ -13,6 +19,11 @@ type VendorMetadata = {
   packaging_philosophy?: string | null
   zps_fit?: string | null
   notes?: string | null
+  address?: Record<string, string | null>
+  agreement_accepted?: boolean
+  agreement_accepted_at?: string | null
+  agreement_version?: string | null
+  review_notes?: Array<Record<string, any>>
 }
 
 type Vendor = {
@@ -29,6 +40,10 @@ type Vendor = {
   submitted_at?: string | null
   created_at?: string | null
   metadata?: VendorMetadata | null
+  documents?: Array<Record<string, any>>
+  application_tasks?: Array<Record<string, any>>
+  application_messages?: Array<Record<string, any>>
+  review_events?: Array<Record<string, any>>
 }
 
 const reviewStatuses: VendorStatus[] = [
@@ -107,6 +122,19 @@ const DetailRow = ({
   </div>
 )
 
+const Panel = ({
+  title,
+  children,
+}: {
+  title: string
+  children: ReactNode
+}) => (
+  <section className="flex flex-col gap-y-4 rounded-lg border border-ui-border-base p-4">
+    <h3 className="text-base font-semibold text-ui-fg-base">{title}</h3>
+    {children}
+  </section>
+)
+
 const MakerReviewPage = () => {
   const [activeStatus, setActiveStatus] = useState<VendorStatus>("submitted")
   const [vendors, setVendors] = useState<Vendor[]>([])
@@ -114,6 +142,10 @@ const MakerReviewPage = () => {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [rejectReason, setRejectReason] = useState("")
+  const [reviewNote, setReviewNote] = useState("")
+  const [adminMessage, setAdminMessage] = useState("")
+  const [taskTitle, setTaskTitle] = useState("")
+  const [taskDescription, setTaskDescription] = useState("")
   const [message, setMessage] = useState("")
   const [error, setError] = useState("")
 
@@ -157,41 +189,23 @@ const MakerReviewPage = () => {
     loadVendors(activeStatus)
   }, [activeStatus])
 
-  const transitionVendor = async (
+  const postAction = async (
     vendor: Vendor,
-    action: "under-review" | "approve" | "reject"
+    path: string,
+    payload: Record<string, any>
   ) => {
-    const reason =
-      action === "reject"
-        ? rejectReason.trim()
-        : action === "approve"
-        ? "Maker approved by BEEMUN admin"
-        : "Maker moved to BEEMUN review"
-
+    setSaving(true)
     setMessage("")
     setError("")
 
-    if (action === "reject" && !reason) {
-      setError("Add a rejection reason before rejecting this maker.")
-      return
-    }
-
-    setSaving(true)
-
     try {
-      const response = await fetch(`/admin/beemun/vendors/${vendor.id}/${action}`, {
+      const response = await fetch(`/admin/beemun/vendors/${vendor.id}/${path}`, {
         method: "POST",
         credentials: "include",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          reason,
-          status_reason: reason,
-          event_metadata: {
-            source: "beemun_admin_maker_review_mvp",
-          },
-        }),
+        body: JSON.stringify(payload),
       })
 
       if (!response.ok) {
@@ -199,7 +213,6 @@ const MakerReviewPage = () => {
       }
 
       setMessage("Maker application updated.")
-      setRejectReason("")
       await loadVendors(activeStatus)
     } catch (saveError) {
       setError(
@@ -212,9 +225,66 @@ const MakerReviewPage = () => {
     }
   }
 
+  const transitionVendor = async (
+    vendor: Vendor,
+    action: "under-review" | "approve" | "reject"
+  ) => {
+    const reason =
+      action === "reject"
+        ? rejectReason.trim()
+        : action === "approve"
+        ? "Maker approved by BEEMUN admin"
+        : "Maker moved to BEEMUN review"
+
+    if (action === "reject" && !reason) {
+      setError("Add a rejection reason before rejecting this maker.")
+      return
+    }
+
+    await postAction(vendor, action, {
+      reason,
+      status_reason: reason,
+      event_metadata: {
+        source: "beemun_admin_maker_review",
+      },
+    })
+    setRejectReason("")
+  }
+
+  const submitNote = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedVendor || !reviewNote.trim()) return
+    await postAction(selectedVendor, "note", { note: reviewNote.trim() })
+    setReviewNote("")
+  }
+
+  const submitMessage = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedVendor || !adminMessage.trim()) return
+    await postAction(selectedVendor, "message", { text: adminMessage.trim() })
+    setAdminMessage("")
+  }
+
+  const submitTask = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedVendor || !taskTitle.trim()) return
+    await postAction(selectedVendor, "task", {
+      title: taskTitle.trim(),
+      description: taskDescription.trim() || null,
+      message: taskDescription.trim()
+        ? `BEEMUN requested clarification: ${taskTitle.trim()}`
+        : null,
+    })
+    setTaskTitle("")
+    setTaskDescription("")
+  }
+
   const handleReasonChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
     setRejectReason(event.target.value)
   }
+
+  const metadata = selectedVendor?.metadata || {}
+  const address = metadata.address || {}
 
   return (
     <div className="flex flex-col gap-y-6 bg-ui-bg-base">
@@ -228,7 +298,7 @@ const MakerReviewPage = () => {
               Maker applications
             </h1>
             <p className="text-sm text-ui-fg-subtle">
-              Review submitted makers before they can list products on BEEMUN.
+              Review India maker applications before marketplace access unlocks.
             </p>
           </div>
           {selectedVendor && (
@@ -274,7 +344,7 @@ const MakerReviewPage = () => {
         </div>
       )}
 
-      <div className="grid gap-6 px-6 pb-6 xl:grid-cols-[minmax(0,0.95fr)_minmax(420px,1.05fr)]">
+      <div className="grid gap-6 px-6 pb-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(520px,1.1fr)]">
         <div className="overflow-hidden rounded-lg border border-ui-border-base">
           <table className="w-full border-collapse text-left text-sm">
             <thead className="border-b border-ui-border-base bg-ui-bg-subtle">
@@ -306,7 +376,7 @@ const MakerReviewPage = () => {
                     <td className="px-4 py-3">
                       <div className="flex flex-col">
                         <span className="font-medium text-ui-fg-base">
-                          {vendor.name}
+                          {vendor.metadata?.brand_public_name || vendor.name}
                         </span>
                         <span className="text-xs text-ui-fg-muted">
                           {vendor.handle}
@@ -343,7 +413,7 @@ const MakerReviewPage = () => {
 
         <div className="rounded-lg border border-ui-border-base bg-ui-bg-base">
           {selectedVendor ? (
-            <div className="flex flex-col gap-y-6 p-6">
+            <div className="flex flex-col gap-y-5 p-6">
               <div className="flex flex-col gap-y-2">
                 <span className="text-xs font-medium text-ui-fg-muted">
                   Application detail
@@ -351,11 +421,10 @@ const MakerReviewPage = () => {
                 <div className="flex flex-col gap-y-3 md:flex-row md:items-start md:justify-between">
                   <div>
                     <h2 className="text-xl font-semibold text-ui-fg-base">
-                      {selectedVendor.name}
+                      {metadata.brand_public_name || selectedVendor.name}
                     </h2>
                     <p className="text-sm text-ui-fg-subtle">
-                      {selectedVendor.metadata?.contact_name ||
-                        "Contact name not provided"}
+                      {metadata.legal_business_name || selectedVendor.name}
                     </p>
                   </div>
                   <span
@@ -368,71 +437,187 @@ const MakerReviewPage = () => {
                 </div>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <DetailRow label="Email" value={selectedVendor.email} />
-                <DetailRow label="Phone" value={selectedVendor.phone} />
-                <DetailRow
-                  label="Country"
-                  value={
-                    selectedVendor.metadata?.application_country ||
-                    selectedVendor.country_code?.toUpperCase()
-                  }
-                />
-                <DetailRow
-                  label="Website / Instagram"
-                  value={
-                    selectedVendor.metadata?.website_or_instagram ||
-                    selectedVendor.website_url
-                  }
-                />
-                <DetailRow
-                  label="Product categories"
-                  value={categoriesText(
-                    selectedVendor.metadata?.product_categories
-                  )}
-                />
-                <DetailRow
-                  label="ZPS fit"
-                  value={selectedVendor.metadata?.zps_fit}
-                />
-              </div>
+              <Panel title="Business identity">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <DetailRow label="Legal business name" value={metadata.legal_business_name} />
+                  <DetailRow label="Brand/public name" value={metadata.brand_public_name || selectedVendor.name} />
+                  <DetailRow label="Business type" value={metadata.business_type} />
+                  <DetailRow label="GSTIN" value={metadata.gstin} />
+                  <DetailRow label="Primary contact" value={metadata.contact_name} />
+                  <DetailRow label="Email" value={selectedVendor.email} />
+                  <DetailRow label="Phone" value={selectedVendor.phone} />
+                  <DetailRow label="Website / Instagram" value={metadata.website_or_instagram || selectedVendor.website_url} />
+                </div>
+              </Panel>
 
-              <div className="grid gap-5">
-                <DetailRow
-                  label="Maker story"
-                  value={selectedVendor.description}
-                />
-                <DetailRow
-                  label="Products they want to list"
-                  value={selectedVendor.metadata?.products_to_list}
-                />
-                <DetailRow
-                  label="Ingredient/material philosophy"
-                  value={selectedVendor.metadata?.ingredient_philosophy}
-                />
-                <DetailRow
-                  label="Packaging philosophy"
-                  value={selectedVendor.metadata?.packaging_philosophy}
-                />
-                <DetailRow label="Notes" value={selectedVendor.metadata?.notes} />
-                <DetailRow
-                  label="Submitted"
-                  value={formatDate(
-                    selectedVendor.submitted_at || selectedVendor.created_at
-                  )}
-                />
-                {selectedVendor.status_reason && (
-                  <DetailRow
-                    label="Status reason"
-                    value={selectedVendor.status_reason}
-                  />
+              <Panel title="Address">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <DetailRow label="Address line 1" value={address.line_1} />
+                  <DetailRow label="Address line 2" value={address.line_2} />
+                  <DetailRow label="City" value={address.city} />
+                  <DetailRow label="State" value={address.state} />
+                  <DetailRow label="PIN code" value={address.pin_code} />
+                  <DetailRow label="Country" value={metadata.country_name || selectedVendor.country_code} />
+                </div>
+              </Panel>
+
+              <Panel title="Maker philosophy">
+                <div className="grid gap-4">
+                  <DetailRow label="Product categories" value={categoriesText(metadata.product_categories)} />
+                  <DetailRow label="Maker story" value={selectedVendor.description} />
+                  <DetailRow label="Products they want to list" value={metadata.products_to_list} />
+                  <DetailRow label="Ingredient/material philosophy" value={metadata.ingredient_philosophy} />
+                  <DetailRow label="Packaging philosophy" value={metadata.packaging_philosophy} />
+                  <DetailRow label="ZPS 100 fit" value={metadata.zps_fit} />
+                  <DetailRow label="Applicant notes" value={metadata.notes} />
+                </div>
+              </Panel>
+
+              <Panel title="Documents">
+                {(selectedVendor.documents || []).length ? (
+                  <div className="grid gap-3">
+                    {(selectedVendor.documents || []).map((document) => (
+                      <div
+                        key={document.id}
+                        className="rounded-md border border-ui-border-base p-3 text-sm"
+                      >
+                        <div className="flex justify-between gap-3">
+                          <span className="font-medium text-ui-fg-base">
+                            {document.title}
+                          </span>
+                          <span className="text-ui-fg-muted">
+                            {document.status}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-ui-fg-subtle">
+                          {document.file_url
+                            ? document.file_url
+                            : "No stored file yet. Applicant marked readiness or BEEMUN can request a secure link."}
+                        </p>
+                        {document.metadata?.applicant_note && (
+                          <p className="mt-1 text-ui-fg-subtle">
+                            Note: {document.metadata.applicant_note}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-ui-fg-subtle">
+                    No document placeholders submitted.
+                  </p>
                 )}
-              </div>
+              </Panel>
 
-              <div className="flex flex-col gap-y-3 border-t border-ui-border-base pt-5">
-                <span className="text-sm font-medium text-ui-fg-base">
-                  Review actions
-                </span>
+              <Panel title="Agreement">
+                <div className="grid gap-4 md:grid-cols-3">
+                  <DetailRow
+                    label="Accepted"
+                    value={metadata.agreement_accepted ? "Yes" : "No"}
+                  />
+                  <DetailRow
+                    label="Accepted at"
+                    value={formatDate(metadata.agreement_accepted_at)}
+                  />
+                  <DetailRow
+                    label="Version"
+                    value={metadata.agreement_version || "maker-application-v1"}
+                  />
+                </div>
+              </Panel>
+
+              <Panel title="Messages">
+                {(selectedVendor.application_messages || []).length ? (
+                  <div className="grid gap-3">
+                    {(selectedVendor.application_messages || []).slice(-5).map((item) => (
+                      <div key={item.id} className="rounded-md bg-ui-bg-subtle p-3">
+                        <span className="text-xs font-medium text-ui-fg-muted">
+                          {item.author_type}
+                        </span>
+                        <p className="text-sm text-ui-fg-base">{item.body}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-ui-fg-subtle">No messages yet.</p>
+                )}
+                <form className="grid gap-2" onSubmit={submitMessage}>
+                  <textarea
+                    className="min-h-20 rounded-md border border-ui-border-base bg-ui-bg-base px-3 py-2 text-sm"
+                    value={adminMessage}
+                    onChange={(event) => setAdminMessage(event.target.value)}
+                    placeholder="Send message or clarification to applicant"
+                  />
+                  <button
+                    type="submit"
+                    className="w-fit rounded-md bg-ui-bg-interactive px-3 py-2 text-sm font-medium text-ui-fg-on-color disabled:opacity-50"
+                    disabled={saving || !adminMessage.trim()}
+                  >
+                    Send message
+                  </button>
+                </form>
+              </Panel>
+
+              <Panel title="Tasks/request changes">
+                {(selectedVendor.application_tasks || []).length ? (
+                  <div className="grid gap-3">
+                    {(selectedVendor.application_tasks || []).map((task) => (
+                      <div key={task.id} className="rounded-md border border-ui-border-base p-3 text-sm">
+                        <div className="flex justify-between gap-3">
+                          <span className="font-medium text-ui-fg-base">
+                            {task.title}
+                          </span>
+                          <span className="text-ui-fg-muted">{task.status}</span>
+                        </div>
+                        <p className="mt-1 text-ui-fg-subtle">
+                          {task.description || "No description."}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-ui-fg-subtle">No tasks yet.</p>
+                )}
+                <form className="grid gap-2" onSubmit={submitTask}>
+                  <input
+                    className="rounded-md border border-ui-border-base bg-ui-bg-base px-3 py-2 text-sm"
+                    value={taskTitle}
+                    onChange={(event) => setTaskTitle(event.target.value)}
+                    placeholder="Task title"
+                  />
+                  <textarea
+                    className="min-h-20 rounded-md border border-ui-border-base bg-ui-bg-base px-3 py-2 text-sm"
+                    value={taskDescription}
+                    onChange={(event) => setTaskDescription(event.target.value)}
+                    placeholder="What should the applicant clarify or provide?"
+                  />
+                  <button
+                    type="submit"
+                    className="w-fit rounded-md bg-ui-bg-interactive px-3 py-2 text-sm font-medium text-ui-fg-on-color disabled:opacity-50"
+                    disabled={saving || !taskTitle.trim()}
+                  >
+                    Create task
+                  </button>
+                </form>
+              </Panel>
+
+              <Panel title="Review notes and decision">
+                <form className="grid gap-2" onSubmit={submitNote}>
+                  <textarea
+                    className="min-h-20 rounded-md border border-ui-border-base bg-ui-bg-base px-3 py-2 text-sm"
+                    value={reviewNote}
+                    onChange={(event) => setReviewNote(event.target.value)}
+                    placeholder="Internal/admin-visible review note"
+                  />
+                  <button
+                    type="submit"
+                    className="w-fit rounded-md border border-ui-border-base bg-ui-bg-base px-3 py-2 text-sm font-medium text-ui-fg-base disabled:opacity-50"
+                    disabled={saving || !reviewNote.trim()}
+                  >
+                    Add review note
+                  </button>
+                </form>
+
                 <textarea
                   className="min-h-20 rounded-md border border-ui-border-base bg-ui-bg-base px-3 py-2 text-sm text-ui-fg-base"
                   value={rejectReason}
@@ -466,7 +651,7 @@ const MakerReviewPage = () => {
                     Reject
                   </button>
                 </div>
-              </div>
+              </Panel>
             </div>
           ) : (
             <div className="p-6 text-sm text-ui-fg-subtle">

@@ -1,5 +1,7 @@
 import { model } from "@medusajs/framework/utils"
 import { VENDOR_STATUSES } from "../constants"
+import VendorApplicationMessage from "./vendor-application-message"
+import VendorApplicationTask from "./vendor-application-task"
 import VendorDocument from "./vendor-document"
 import VendorInvite from "./vendor-invite"
 import VendorMember from "./vendor-member"
@@ -35,6 +37,12 @@ const Vendor = model
       mappedBy: "vendor",
     }),
     documents: model.hasMany(() => VendorDocument, {
+      mappedBy: "vendor",
+    }),
+    application_messages: model.hasMany(() => VendorApplicationMessage, {
+      mappedBy: "vendor",
+    }),
+    application_tasks: model.hasMany(() => VendorApplicationTask, {
       mappedBy: "vendor",
     }),
     review_events: model.hasMany(() => VendorReviewEvent, {

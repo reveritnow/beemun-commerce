@@ -49,14 +49,25 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
   const reviewEvents = await marketplace.listVendorReviewEvents({
     vendor_id: vendor.id,
   })
+  const applicationTasks = await marketplace.listVendorApplicationTasks({
+    vendor_id: vendor.id,
+  })
+  const applicationMessages = await marketplace.listVendorApplicationMessages({
+    vendor_id: vendor.id,
+    internal: false,
+  })
   const metadata = vendor.metadata || {}
 
   res.json({
     vendor,
     documents,
     review_events: reviewEvents,
-    tasks: metadata.application_tasks || [],
-    messages: metadata.application_messages || [],
+    tasks: applicationTasks.length
+      ? applicationTasks
+      : metadata.application_tasks || [],
+    messages: applicationMessages.length
+      ? applicationMessages
+      : metadata.application_messages || [],
   })
 }
 
@@ -88,46 +99,40 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       return
     }
 
-    const messages = [
-      ...(metadata.application_messages || []),
-      {
-        id: `msg_${Date.now()}`,
-        author_type: "applicant",
-        text,
-        created_at: new Date().toISOString(),
-      },
-    ]
-
-    const updated = await marketplace.updateVendors({
-      id: vendor.id,
+    const message = await marketplace.createVendorApplicationMessages({
+      vendor_id: vendor.id,
+      author_type: "applicant",
+      author_user_id: null,
+      body: text,
+      internal: false,
       metadata: {
-        ...metadata,
-        application_messages: messages,
+        source: "maker_application_portal",
       },
     })
 
-    res.json({ vendor: updated, messages })
+    res.status(201).json({ message })
     return
   }
 
   if (action === "complete_task") {
     const taskId = String(body.task_id || "")
-    const tasks = (metadata.application_tasks || []).map(
-      (task: Record<string, any>) =>
-        task.id === taskId
-          ? { ...task, status: "completed", completed_at: new Date().toISOString() }
-          : task
-    )
-
-    const updated = await marketplace.updateVendors({
-      id: vendor.id,
-      metadata: {
-        ...metadata,
-        application_tasks: tasks,
-      },
+    const existingTasks = await marketplace.listVendorApplicationTasks({
+      id: taskId,
+      vendor_id: vendor.id,
     })
 
-    res.json({ vendor: updated, tasks })
+    if (!existingTasks[0]) {
+      res.status(404).json({ message: "Application task was not found." })
+      return
+    }
+
+    const task = await marketplace.updateVendorApplicationTasks({
+      id: taskId,
+      status: "completed",
+      completed_at: new Date(),
+    })
+
+    res.json({ task })
     return
   }
 
@@ -144,9 +149,10 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       document_type: body.document_type || "application",
       title,
       file_url: body.file_url || null,
-      status: "submitted",
+      status: body.file_url ? "submitted" : "draft",
       metadata: {
         source: "maker_application_portal",
+        storage_status: body.file_url ? "stored" : "upload_pending",
         applicant_note: body.note || null,
       },
     })

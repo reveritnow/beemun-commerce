@@ -6,19 +6,34 @@ import { FormEvent, useMemo, useState } from "react"
 type WizardState = "idle" | "submitting" | "error"
 
 type Values = {
-  businessName: string
+  legalBusinessName: string
+  brandName: string
+  businessType: string
+  gstin: string
+  website: string
   contactName: string
   phone: string
-  country: string
-  website: string
+  addressLine1: string
+  addressLine2: string
+  city: string
+  state: string
+  pinCode: string
   makerStory: string
   productsToList: string
-  sourcingPhilosophy: string
   ingredientPhilosophy: string
   packagingPhilosophy: string
   zpsFit: string
   notes: string
+  agreementAccepted: boolean
 }
+
+type DocumentState = Record<
+  string,
+  {
+    available: boolean
+    note: string
+  }
+>
 
 const categories = [
   "Skin & Body",
@@ -29,83 +44,145 @@ const categories = [
   "Other",
 ]
 
+const businessTypes = [
+  "Individual maker",
+  "Proprietorship",
+  "Partnership",
+  "LLP",
+  "Private Limited",
+  "Other",
+]
+
+const documentTypes = [
+  {
+    key: "gst_certificate",
+    title: "GST certificate",
+    required: false,
+  },
+  {
+    key: "business_registration",
+    title: "Business registration/incorporation proof",
+    required: false,
+  },
+  {
+    key: "brand_logo",
+    title: "Brand logo",
+    required: false,
+  },
+  {
+    key: "certifications",
+    title: "Certifications",
+    required: false,
+  },
+  {
+    key: "supporting_documents",
+    title: "Other supporting documents",
+    required: false,
+  },
+]
+
 const initialValues: Values = {
-  businessName: "",
+  legalBusinessName: "",
+  brandName: "",
+  businessType: "",
+  gstin: "",
+  website: "",
   contactName: "",
   phone: "",
-  country: "",
-  website: "",
+  addressLine1: "",
+  addressLine2: "",
+  city: "",
+  state: "",
+  pinCode: "",
   makerStory: "",
   productsToList: "",
-  sourcingPhilosophy: "",
   ingredientPhilosophy: "",
   packagingPhilosophy: "",
   zpsFit: "",
   notes: "",
+  agreementAccepted: false,
 }
+
+const initialDocuments: DocumentState = documentTypes.reduce((acc, item) => {
+  acc[item.key] = { available: false, note: "" }
+  return acc
+}, {} as DocumentState)
 
 const steps = [
   {
     title: "Welcome",
     eyebrow: "Step 1",
-    summary: "A short orientation before you begin.",
+    summary: "India-first partner review before any maker tools unlock.",
     fields: [] as Array<keyof Values | "productCategories">,
   },
   {
-    title: "Basic details",
+    title: "Business identity",
     eyebrow: "Step 2",
-    summary: "Tell us who you are and where you make.",
-    fields: ["businessName", "contactName", "country"],
+    summary: "Legal, brand, GST, and primary contact information.",
+    fields: [
+      "legalBusinessName",
+      "brandName",
+      "businessType",
+      "contactName",
+      "phone",
+    ],
   },
   {
-    title: "Brand story",
+    title: "Business address",
     eyebrow: "Step 3",
-    summary: "Share the story customers should be able to trust.",
-    fields: ["makerStory", "productsToList", "productCategories"],
+    summary: "Your India business or maker correspondence address.",
+    fields: ["addressLine1", "city", "state", "pinCode"],
   },
   {
-    title: "Making & sourcing",
+    title: "Documents",
     eyebrow: "Step 4",
-    summary: "Explain how materials, suppliers, and production are chosen.",
-    fields: ["sourcingPhilosophy"],
+    summary: "Tell BEEMUN what documents are ready. Upload storage comes next.",
+    fields: [],
   },
   {
-    title: "Ingredients/materials",
+    title: "Maker philosophy",
     eyebrow: "Step 5",
-    summary: "Describe what goes into your products and why.",
-    fields: ["ingredientPhilosophy"],
+    summary: "Explain what you make, how you source, and what customers can trust.",
+    fields: [
+      "makerStory",
+      "productsToList",
+      "ingredientPhilosophy",
+      "packagingPhilosophy",
+      "zpsFit",
+      "productCategories",
+    ],
   },
   {
-    title: "Packaging & sustainability",
+    title: "Agreement",
     eyebrow: "Step 6",
-    summary: "Show how your packaging can meet BEEMUN expectations.",
-    fields: ["packagingPhilosophy"],
-  },
-  {
-    title: "ZPS 100 fit",
-    eyebrow: "Step 7",
-    summary: "Reflect on zero plastic, zero synthetic, and full disclosure.",
-    fields: ["zpsFit"],
+    summary: "Confirm the terms that govern this application review.",
+    fields: ["agreementAccepted"],
   },
   {
     title: "Review & submit",
-    eyebrow: "Step 8",
-    summary: "Check everything before sending your maker profile to BEEMUN.",
+    eyebrow: "Step 7",
+    summary: "Check the application before sending it to BEEMUN.",
     fields: [],
   },
 ]
 
 const labels: Record<string, string> = {
-  businessName: "Maker / business name",
-  contactName: "Contact name",
-  country: "Country",
+  legalBusinessName: "Legal business name",
+  brandName: "Brand/public name",
+  businessType: "Business type",
+  contactName: "Primary contact name",
+  phone: "Phone",
+  addressLine1: "Address line 1",
+  city: "City",
+  state: "State",
+  pinCode: "PIN code",
   makerStory: "Maker story",
   productsToList: "Products you want to list",
   productCategories: "Product categories",
-  sourcingPhilosophy: "Making & sourcing",
   ingredientPhilosophy: "Ingredient/material philosophy",
   packagingPhilosophy: "Packaging philosophy",
   zpsFit: "ZPS 100 fit",
+  agreementAccepted: "BEEMUN Maker Application Terms",
 }
 
 const slugify = (value: string) => {
@@ -138,6 +215,7 @@ export default function MakerApplicationForm({
   const [state, setState] = useState<WizardState>("idle")
   const [error, setError] = useState("")
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
+  const [documents, setDocuments] = useState<DocumentState>(initialDocuments)
   const [values, setValues] = useState<Values>({
     ...initialValues,
     contactName: userName || "",
@@ -150,8 +228,22 @@ export default function MakerApplicationForm({
     [selectedCategories]
   )
 
-  const update = (key: keyof Values, value: string) => {
+  const update = (key: keyof Values, value: string | boolean) => {
     setValues((currentValues) => ({ ...currentValues, [key]: value }))
+  }
+
+  const updateDocument = (
+    key: string,
+    field: "available" | "note",
+    value: boolean | string
+  ) => {
+    setDocuments((currentDocuments) => ({
+      ...currentDocuments,
+      [key]: {
+        ...currentDocuments[key],
+        [field]: value,
+      },
+    }))
   }
 
   const toggleCategory = (category: string) => {
@@ -168,7 +260,12 @@ export default function MakerApplicationForm({
         return selectedCategories.length === 0
       }
 
-      return !values[field].trim()
+      if (field === "agreementAccepted") {
+        return values.agreementAccepted !== true
+      }
+
+      const value = values[field]
+      return typeof value === "string" ? !value.trim() : !value
     })
 
     if (missing) {
@@ -197,13 +294,15 @@ export default function MakerApplicationForm({
     event.preventDefault()
     setError("")
 
-    if (!validateStep()) {
+    if (!values.agreementAccepted) {
+      setError("Please accept the BEEMUN Maker Application Terms.")
       return
     }
 
     const { firstName, lastName } = splitName(
       values.contactName || userName || ""
     )
+    const acceptedAt = new Date().toISOString()
 
     setState("submitting")
 
@@ -214,37 +313,62 @@ export default function MakerApplicationForm({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          name: values.businessName,
-          handle: slugify(values.businessName),
+          name: values.brandName,
+          handle: slugify(values.brandName),
           email: userEmail,
           owner_email: userEmail,
           owner_first_name: firstName,
           owner_last_name: lastName,
           phone: values.phone || null,
           website_url: values.website || null,
-          country_code: values.country,
+          country_code: "IN",
           description: values.makerStory,
           submit: true,
           status: "submitted",
           notes: values.notes || null,
+          agreement_accepted: true,
+          agreement_accepted_at: acceptedAt,
+          agreement_version: "maker-application-v1",
+          documents: documentTypes
+            .filter((item) => documents[item.key].available || documents[item.key].note)
+            .map((item) => ({
+              document_type: item.key,
+              title: item.title,
+              required: item.required,
+              note: documents[item.key].note || null,
+            })),
           metadata: {
-            public_application_source: "guided-maker-portal-apply",
+            public_application_source: "india-maker-approval-journey",
             beemun_auth_email: userEmail,
+            legal_business_name: values.legalBusinessName,
+            brand_public_name: values.brandName,
+            business_type: values.businessType,
+            gstin: values.gstin || null,
             contact_name: values.contactName,
             website_or_instagram: values.website || null,
             product_categories: selectedCategories,
             products_to_list: values.productsToList,
-            sourcing_philosophy: values.sourcingPhilosophy,
             ingredient_philosophy: values.ingredientPhilosophy,
             packaging_philosophy: values.packagingPhilosophy,
             zps_fit: values.zpsFit,
             notes: values.notes || null,
+            address: {
+              line_1: values.addressLine1,
+              line_2: values.addressLine2 || null,
+              city: values.city,
+              state: values.state,
+              pin_code: values.pinCode,
+              country_code: "IN",
+              country_name: "India",
+            },
+            document_readiness: documents,
           },
           owner_metadata: {
-            public_application_source: "guided-maker-portal-apply",
+            public_application_source: "india-maker-approval-journey",
           },
           event_metadata: {
-            public_application_source: "guided-maker-portal-apply",
+            public_application_source: "india-maker-approval-journey",
+            agreement_version: "maker-application-v1",
           },
         }),
       })
@@ -273,11 +397,11 @@ export default function MakerApplicationForm({
     <section className="beemun-section beemun-application-section">
       <div className="beemun-onboarding-shell">
         <aside className="beemun-onboarding-sidebar">
-          <p className="beemun-eyebrow">Maker application</p>
-          <h1>Guided review for accountable makers.</h1>
+          <p className="beemun-eyebrow">India Maker Application</p>
+          <h1>Partner review before marketplace access.</h1>
           <p>
-            Save-and-continue through the essentials BEEMUN needs before a maker
-            profile can enter review. Product tools stay locked until approval.
+            BEEMUN currently reviews India-based makers first. Product tools,
+            uploads, orders, and payouts stay locked until approval.
           </p>
           <div className="beemun-progress-card">
             <div>
@@ -325,16 +449,17 @@ export default function MakerApplicationForm({
 
           {step === 0 && (
             <div className="beemun-wizard-panel">
-              <h3>Before you begin</h3>
+              <h3>Country: India</h3>
               <p>
-                BEEMUN reviews maker accountability before product tools unlock.
-                You will share your story, sourcing, ingredients, packaging, and
-                ZPS 100 fit. This application does not publish products.
+                This application is for India-based makers only. BEEMUN reviews
+                business identity, documents, maker philosophy, packaging,
+                legal/tax readiness, and ZPS 100 fit before unlocking partner
+                tools.
               </p>
               <div className="beemun-lock-strip">
-                <span>Locked: Products</span>
-                <span>Locked: Orders</span>
-                <span>Locked: Payouts</span>
+                <span>Country locked: India</span>
+                <span>Products locked</span>
+                <span>Admin approval required</span>
               </div>
             </div>
           )}
@@ -342,15 +467,58 @@ export default function MakerApplicationForm({
           {step === 1 && (
             <div className="beemun-form-grid">
               <label>
-                <span>Maker / business name *</span>
+                <span>Legal business name *</span>
                 <input
-                  value={values.businessName}
-                  onChange={(event) => update("businessName", event.target.value)}
+                  value={values.legalBusinessName}
+                  onChange={(event) =>
+                    update("legalBusinessName", event.target.value)
+                  }
                   required
                 />
               </label>
               <label>
-                <span>Contact name *</span>
+                <span>Brand/public name *</span>
+                <input
+                  value={values.brandName}
+                  onChange={(event) => update("brandName", event.target.value)}
+                  required
+                />
+              </label>
+              <label>
+                <span>Business type *</span>
+                <select
+                  value={values.businessType}
+                  onChange={(event) =>
+                    update("businessType", event.target.value)
+                  }
+                  required
+                >
+                  <option value="">Select business type</option>
+                  {businessTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>GSTIN</span>
+                <input
+                  value={values.gstin}
+                  onChange={(event) => update("gstin", event.target.value)}
+                  placeholder="Optional for now"
+                />
+              </label>
+              <label>
+                <span>Website / Instagram</span>
+                <input
+                  placeholder="https:// or @handle"
+                  value={values.website}
+                  onChange={(event) => update("website", event.target.value)}
+                />
+              </label>
+              <label>
+                <span>Primary contact name *</span>
                 <input
                   value={values.contactName}
                   onChange={(event) => update("contactName", event.target.value)}
@@ -362,33 +530,105 @@ export default function MakerApplicationForm({
                 <input type="email" value={userEmail} disabled />
               </label>
               <label>
-                <span>Phone</span>
+                <span>Phone *</span>
                 <input
                   type="tel"
                   value={values.phone}
                   onChange={(event) => update("phone", event.target.value)}
-                />
-              </label>
-              <label>
-                <span>Country *</span>
-                <input
-                  value={values.country}
-                  onChange={(event) => update("country", event.target.value)}
                   required
-                />
-              </label>
-              <label>
-                <span>Website / Instagram</span>
-                <input
-                  placeholder="https:// or @handle"
-                  value={values.website}
-                  onChange={(event) => update("website", event.target.value)}
                 />
               </label>
             </div>
           )}
 
           {step === 2 && (
+            <div className="beemun-form-grid">
+              <label>
+                <span>Address line 1 *</span>
+                <input
+                  value={values.addressLine1}
+                  onChange={(event) => update("addressLine1", event.target.value)}
+                  required
+                />
+              </label>
+              <label>
+                <span>Address line 2</span>
+                <input
+                  value={values.addressLine2}
+                  onChange={(event) => update("addressLine2", event.target.value)}
+                />
+              </label>
+              <label>
+                <span>City *</span>
+                <input
+                  value={values.city}
+                  onChange={(event) => update("city", event.target.value)}
+                  required
+                />
+              </label>
+              <label>
+                <span>State *</span>
+                <input
+                  value={values.state}
+                  onChange={(event) => update("state", event.target.value)}
+                  required
+                />
+              </label>
+              <label>
+                <span>PIN code *</span>
+                <input
+                  value={values.pinCode}
+                  onChange={(event) => update("pinCode", event.target.value)}
+                  required
+                />
+              </label>
+              <label>
+                <span>Country</span>
+                <input value="India" disabled />
+              </label>
+            </div>
+          )}
+
+          {step === 3 && (
+            <div className="beemun-wizard-panel">
+              <h3>Document readiness</h3>
+              <p>
+                Secure file storage is not enabled in this MVP. Mark documents
+                you have ready and add notes. BEEMUN can request upload links or
+                replacements from your dashboard.
+              </p>
+              <div className="beemun-document-grid">
+                {documentTypes.map((document) => (
+                  <article key={document.key}>
+                    <label className="beemun-inline-check">
+                      <input
+                        type="checkbox"
+                        checked={documents[document.key].available}
+                        onChange={(event) =>
+                          updateDocument(
+                            document.key,
+                            "available",
+                            event.target.checked
+                          )
+                        }
+                      />
+                      <span>{document.title}</span>
+                    </label>
+                    <textarea
+                      rows={2}
+                      placeholder="Optional note for BEEMUN"
+                      value={documents[document.key].note}
+                      onChange={(event) =>
+                        updateDocument(document.key, "note", event.target.value)
+                      }
+                    />
+                  </article>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {step === 4 && (
             <>
               <fieldset>
                 <legend>Product categories *</legend>
@@ -407,7 +647,7 @@ export default function MakerApplicationForm({
                 <input type="hidden" value={categoryValue} readOnly />
               </fieldset>
               <label>
-                <span>Short maker story *</span>
+                <span>Maker story *</span>
                 <textarea
                   rows={5}
                   value={values.makerStory}
@@ -426,70 +666,48 @@ export default function MakerApplicationForm({
                   required
                 />
               </label>
-            </>
-          )}
-
-          {step === 3 && (
-            <label>
-              <span>Making & sourcing *</span>
-              <textarea
-                rows={7}
-                value={values.sourcingPhilosophy}
-                onChange={(event) =>
-                  update("sourcingPhilosophy", event.target.value)
-                }
-                placeholder="Where do materials come from? Who makes the products? What can BEEMUN verify later?"
-                required
-              />
-            </label>
-          )}
-
-          {step === 4 && (
-            <label>
-              <span>Ingredient/material philosophy *</span>
-              <textarea
-                rows={7}
-                value={values.ingredientPhilosophy}
-                onChange={(event) =>
-                  update("ingredientPhilosophy", event.target.value)
-                }
-                required
-              />
-            </label>
-          )}
-
-          {step === 5 && (
-            <label>
-              <span>Packaging philosophy *</span>
-              <textarea
-                rows={7}
-                value={values.packagingPhilosophy}
-                onChange={(event) =>
-                  update("packagingPhilosophy", event.target.value)
-                }
-                required
-              />
-            </label>
-          )}
-
-          {step === 6 && (
-            <fieldset>
-              <legend>Do you believe your products can meet ZPS 100? *</legend>
-              <div className="beemun-radio-row">
-                {["yes", "no", "not sure"].map((option) => (
-                  <label key={option}>
-                    <input
-                      name="zpsFit"
-                      type="radio"
-                      value={option}
-                      checked={values.zpsFit === option}
-                      onChange={(event) => update("zpsFit", event.target.value)}
-                      required
-                    />
-                    <span>{option}</span>
-                  </label>
-                ))}
-              </div>
+              <label>
+                <span>Ingredient/material philosophy *</span>
+                <textarea
+                  rows={5}
+                  value={values.ingredientPhilosophy}
+                  onChange={(event) =>
+                    update("ingredientPhilosophy", event.target.value)
+                  }
+                  required
+                />
+              </label>
+              <label>
+                <span>Packaging philosophy *</span>
+                <textarea
+                  rows={5}
+                  value={values.packagingPhilosophy}
+                  onChange={(event) =>
+                    update("packagingPhilosophy", event.target.value)
+                  }
+                  required
+                />
+              </label>
+              <fieldset>
+                <legend>Do you believe your products can meet ZPS 100? *</legend>
+                <div className="beemun-radio-row">
+                  {["yes", "no", "not sure"].map((option) => (
+                    <label key={option}>
+                      <input
+                        name="zpsFit"
+                        type="radio"
+                        value={option}
+                        checked={values.zpsFit === option}
+                        onChange={(event) =>
+                          update("zpsFit", event.target.value)
+                        }
+                        required
+                      />
+                      <span>{option}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
               <label>
                 <span>Notes for BEEMUN</span>
                 <textarea
@@ -498,16 +716,63 @@ export default function MakerApplicationForm({
                   onChange={(event) => update("notes", event.target.value)}
                 />
               </label>
-            </fieldset>
+            </>
           )}
 
-          {step === 7 && (
+          {step === 5 && (
+            <div className="beemun-wizard-panel">
+              <h3>BEEMUN Maker Application Terms</h3>
+              <div className="beemun-agreement-box">
+                <p>
+                  I confirm the information submitted is accurate to the best of
+                  my knowledge. I understand that submitting an application does
+                  not guarantee BEEMUN approval.
+                </p>
+                <p>
+                  I understand products require separate ZPS 100 and product
+                  approval before public listing. No product can be listed
+                  publicly until BEEMUN approves the maker and the product.
+                </p>
+                <p>
+                  BEEMUN may request documents, clarification, packaging
+                  evidence, certifications, or compliance details during review.
+                </p>
+                <p>
+                  BEEMUN may reject, suspend, or remove maker access if
+                  standards are not met or information is inaccurate.
+                </p>
+                <p>
+                  The maker is responsible for complying with applicable Indian
+                  laws, GST/tax rules, packaging requirements, labeling rules,
+                  and product-specific regulations.
+                </p>
+              </div>
+              <label className="beemun-inline-check">
+                <input
+                  type="checkbox"
+                  checked={values.agreementAccepted}
+                  onChange={(event) =>
+                    update("agreementAccepted", event.target.checked)
+                  }
+                  required
+                />
+                <span>
+                  I have read and agree to the BEEMUN Maker Application Terms.
+                </span>
+              </label>
+            </div>
+          )}
+
+          {step === 6 && (
             <div className="beemun-review-grid">
               {[
-                ["Maker", values.businessName],
+                ["Legal name", values.legalBusinessName],
+                ["Brand", values.brandName],
+                ["Business type", values.businessType],
+                ["GSTIN", values.gstin || "Not provided"],
                 ["Contact", values.contactName],
-                ["Country", values.country],
-                ["Categories", categoryValue],
+                ["Country", "India"],
+                ["Address", `${values.addressLine1}, ${values.city}, ${values.state} ${values.pinCode}`],
                 ["ZPS 100 fit", values.zpsFit],
               ].map(([label, value]) => (
                 <article key={label}>
@@ -516,14 +781,21 @@ export default function MakerApplicationForm({
                 </article>
               ))}
               <article className="wide">
-                <span>Maker story</span>
-                <p>{values.makerStory || "Not provided"}</p>
+                <span>Documents</span>
+                <p>
+                  {documentTypes
+                    .filter((item) => documents[item.key].available)
+                    .map((item) => item.title)
+                    .join(", ") || "No document readiness marked yet"}
+                </p>
               </article>
               <article className="wide">
-                <span>BEEMUN review lock</span>
+                <span>Agreement</span>
                 <p>
-                  Submitting creates a maker profile with status submitted.
-                  BEEMUN must approve the maker before any product tools unlock.
+                  Accepted:{" "}
+                  {values.agreementAccepted
+                    ? "maker-application-v1"
+                    : "Not yet accepted"}
                 </p>
               </article>
             </div>
