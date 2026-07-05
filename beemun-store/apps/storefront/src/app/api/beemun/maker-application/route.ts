@@ -6,14 +6,23 @@ const cleanBackendUrl = (url: string) => url.replace(/\/+$/, "")
 const errorMessageFrom = async (response: Response) => {
   try {
     const data = await response.json()
+    const message = data?.message || data?.error || data?.detail
+
+    if (
+      typeof message === "string" &&
+      message.trim() &&
+      message.toLowerCase() !== "an unknown error occurred."
+    ) {
+      return message
+    }
+
     return (
-      data?.message ||
-      data?.error ||
-      data?.detail ||
-      "The maker application could not be submitted."
+      data?.code
+        ? `The maker application could not be submitted (${data.code}). Please contact BEEMUN if this continues.`
+        : `The maker application could not be submitted because the BEEMUN backend returned ${response.status}. Please try again or contact BEEMUN.`
     )
   } catch {
-    return "The maker application could not be submitted."
+    return `The maker application could not be submitted because the BEEMUN backend returned ${response.status}. Please try again or contact BEEMUN.`
   }
 }
 
