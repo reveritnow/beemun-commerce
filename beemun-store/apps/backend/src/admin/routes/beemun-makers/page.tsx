@@ -105,6 +105,31 @@ const documentFileLabel = (document: Record<string, any>) => {
   )
 }
 
+const documentStatusLabel = (status?: string | null) => {
+  if (status === "approved") return "Approved"
+  if (status === "needs_changes") return "Needs replacement"
+  if (status === "rejected") return "Rejected"
+  if (status === "submitted") return "Submitted"
+  if (status === "under_review") return "Under review"
+  return "Missing"
+}
+
+const documentStatusClass = (document: Record<string, any>) => {
+  if (!document.file_url) {
+    return "border-orange-200 bg-orange-50 text-orange-700"
+  }
+
+  if (document.status === "approved") {
+    return "border-green-200 bg-green-50 text-green-700"
+  }
+
+  if (document.status === "needs_changes" || document.status === "rejected") {
+    return "border-red-200 bg-red-50 text-red-700"
+  }
+
+  return "border-blue-200 bg-blue-50 text-blue-700"
+}
+
 const normalizeError = async (response: Response) => {
   const data = await response.json().catch(() => null)
 
@@ -293,6 +318,15 @@ const MakerReviewPage = () => {
 
   const metadata = selectedVendor?.metadata || {}
   const address = metadata.address || {}
+  const selectedDocuments = selectedVendor?.documents || []
+  const uploadedDocuments = selectedDocuments.filter((document) => document.file_url)
+  const missingDocuments = selectedDocuments.filter((document) => !document.file_url)
+  const openTasks = (selectedVendor?.application_tasks || []).filter(
+    (task) => task.status !== "completed"
+  )
+  const latestReviewNote = Array.isArray(metadata.review_notes)
+    ? metadata.review_notes[metadata.review_notes.length - 1]
+    : null
 
   return (
     <div className="flex flex-col gap-y-6 bg-ui-bg-base">
@@ -445,6 +479,48 @@ const MakerReviewPage = () => {
                 </div>
               </div>
 
+              <section className="grid gap-3 md:grid-cols-4">
+                <div className="rounded-lg border border-ui-border-base bg-ui-bg-subtle p-4">
+                  <span className="text-xs font-medium text-ui-fg-muted">
+                    Documents received
+                  </span>
+                  <p className="mt-1 text-2xl font-semibold text-ui-fg-base">
+                    {uploadedDocuments.length}/{selectedDocuments.length || 0}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-ui-border-base bg-ui-bg-subtle p-4">
+                  <span className="text-xs font-medium text-ui-fg-muted">
+                    Open tasks
+                  </span>
+                  <p className="mt-1 text-2xl font-semibold text-ui-fg-base">
+                    {openTasks.length}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-ui-border-base bg-ui-bg-subtle p-4">
+                  <span className="text-xs font-medium text-ui-fg-muted">
+                    Messages
+                  </span>
+                  <p className="mt-1 text-2xl font-semibold text-ui-fg-base">
+                    {(selectedVendor.application_messages || []).length}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-ui-border-base bg-ui-bg-subtle p-4">
+                  <span className="text-xs font-medium text-ui-fg-muted">
+                    Latest note
+                  </span>
+                  <p className="mt-1 text-sm text-ui-fg-base">
+                    {latestReviewNote?.note || selectedVendor.status_reason || "No note yet"}
+                  </p>
+                </div>
+              </section>
+
+              {missingDocuments.length > 0 && (
+                <div className="rounded-lg border border-orange-200 bg-orange-50 p-4 text-sm text-orange-800">
+                  <strong>{missingDocuments.length} document{missingDocuments.length === 1 ? "" : "s"} missing.</strong>{" "}
+                  Create a task if BEEMUN needs the applicant to provide them before approval.
+                </div>
+              )}
+
               <Panel title="Business identity">
                 <div className="grid gap-4 md:grid-cols-2">
                   <DetailRow label="Legal business name" value={metadata.legal_business_name} />
@@ -489,18 +565,31 @@ const MakerReviewPage = () => {
                         key={document.id}
                         className="rounded-md border border-ui-border-base p-3 text-sm"
                       >
-                        <div className="flex justify-between gap-3">
-                          <span className="font-medium text-ui-fg-base">
-                            {document.title}
-                          </span>
-                          <span className="text-ui-fg-muted">
-                            {document.status}
+                        <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                          <div>
+                            <span className="font-medium text-ui-fg-base">
+                              {document.title}
+                            </span>
+                            <p className="mt-1 text-xs text-ui-fg-muted">
+                              {document.metadata?.required
+                                ? "Required for this application"
+                                : "Optional or supporting evidence"}
+                            </p>
+                          </div>
+                          <span
+                            className={`inline-flex w-fit rounded-full border px-2 py-1 text-xs font-medium ${documentStatusClass(
+                              document
+                            )}`}
+                          >
+                            {document.file_url
+                              ? documentStatusLabel(document.status)
+                              : "Missing file"}
                           </span>
                         </div>
                         <p className="mt-1 text-ui-fg-subtle">
                           {document.file_url
                             ? documentFileLabel(document)
-                            : "No uploaded file yet. Create a task if BEEMUN needs this document."}
+                            : "No uploaded file is attached yet. Request it as a task if it is needed before approval."}
                         </p>
                         {document.file_url && (
                           <a
@@ -550,33 +639,35 @@ const MakerReviewPage = () => {
                     {(selectedVendor.application_messages || []).slice(-5).map((item) => (
                       <div key={item.id} className="rounded-md bg-ui-bg-subtle p-3">
                         <span className="text-xs font-medium text-ui-fg-muted">
-                          {item.author_type}
+                          {item.author_type === "admin" ? "BEEMUN" : "Applicant"}
                         </span>
                         <p className="text-sm text-ui-fg-base">{item.body}</p>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-ui-fg-subtle">No messages yet.</p>
+                  <p className="text-sm text-ui-fg-subtle">
+                    No conversation yet. Send clarifications here so the applicant sees them in My Application.
+                  </p>
                 )}
                 <form className="grid gap-2" onSubmit={submitMessage}>
                   <textarea
                     className="min-h-20 rounded-md border border-ui-border-base bg-ui-bg-base px-3 py-2 text-sm"
                     value={adminMessage}
                     onChange={(event) => setAdminMessage(event.target.value)}
-                    placeholder="Send message or clarification to applicant"
+                    placeholder="Send a review message or clarification request"
                   />
                   <button
                     type="submit"
                     className="w-fit rounded-md bg-ui-bg-interactive px-3 py-2 text-sm font-medium text-ui-fg-on-color disabled:opacity-50"
                     disabled={saving || !adminMessage.trim()}
                   >
-                    Send message
+                    Send to applicant
                   </button>
                 </form>
               </Panel>
 
-              <Panel title="Tasks/request changes">
+              <Panel title="Tasks and requested changes">
                 {(selectedVendor.application_tasks || []).length ? (
                   <div className="grid gap-3">
                     {(selectedVendor.application_tasks || []).map((task) => (
@@ -594,14 +685,16 @@ const MakerReviewPage = () => {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-ui-fg-subtle">No tasks yet.</p>
+                  <p className="text-sm text-ui-fg-subtle">
+                    No tasks yet. Create one when BEEMUN needs documents, packaging photos, ingredient clarification, or compliance detail.
+                  </p>
                 )}
                 <form className="grid gap-2" onSubmit={submitTask}>
                   <input
                     className="rounded-md border border-ui-border-base bg-ui-bg-base px-3 py-2 text-sm"
                     value={taskTitle}
                     onChange={(event) => setTaskTitle(event.target.value)}
-                    placeholder="Task title"
+                    placeholder="Task title, e.g. Upload GST certificate"
                   />
                   <textarea
                     className="min-h-20 rounded-md border border-ui-border-base bg-ui-bg-base px-3 py-2 text-sm"
@@ -614,7 +707,7 @@ const MakerReviewPage = () => {
                     className="w-fit rounded-md bg-ui-bg-interactive px-3 py-2 text-sm font-medium text-ui-fg-on-color disabled:opacity-50"
                     disabled={saving || !taskTitle.trim()}
                   >
-                    Create task
+                    Request from applicant
                   </button>
                 </form>
               </Panel>
@@ -625,14 +718,14 @@ const MakerReviewPage = () => {
                     className="min-h-20 rounded-md border border-ui-border-base bg-ui-bg-base px-3 py-2 text-sm"
                     value={reviewNote}
                     onChange={(event) => setReviewNote(event.target.value)}
-                    placeholder="Internal/admin-visible review note"
+                    placeholder="Internal review note. This also appears in the applicant's review notes area."
                   />
                   <button
                     type="submit"
                     className="w-fit rounded-md border border-ui-border-base bg-ui-bg-base px-3 py-2 text-sm font-medium text-ui-fg-base disabled:opacity-50"
                     disabled={saving || !reviewNote.trim()}
                   >
-                    Add review note
+                    Save review note
                   </button>
                 </form>
 
@@ -640,7 +733,7 @@ const MakerReviewPage = () => {
                   className="min-h-20 rounded-md border border-ui-border-base bg-ui-bg-base px-3 py-2 text-sm text-ui-fg-base"
                   value={rejectReason}
                   onChange={handleReasonChange}
-                  placeholder="Reason for rejection"
+                  placeholder="Decision reason, required before rejection"
                   rows={3}
                 />
                 <div className="flex flex-wrap gap-2">
@@ -650,7 +743,7 @@ const MakerReviewPage = () => {
                     disabled={saving || selectedVendor.status === "under_review"}
                     onClick={() => transitionVendor(selectedVendor, "under-review")}
                   >
-                    Mark under review
+                    Start business review
                   </button>
                   <button
                     type="button"
@@ -658,7 +751,7 @@ const MakerReviewPage = () => {
                     disabled={saving || selectedVendor.status === "approved"}
                     onClick={() => transitionVendor(selectedVendor, "approve")}
                   >
-                    Approve
+                    Approve maker
                   </button>
                   <button
                     type="button"
@@ -666,7 +759,7 @@ const MakerReviewPage = () => {
                     disabled={saving || selectedVendor.status === "rejected"}
                     onClick={() => transitionVendor(selectedVendor, "reject")}
                   >
-                    Reject
+                    Reject with reason
                   </button>
                 </div>
               </Panel>

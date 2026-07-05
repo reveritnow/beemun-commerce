@@ -26,11 +26,11 @@ type PortalData = {
 }
 
 const stages = [
-  ["submitted", "Submitted", "Your India maker application has reached BEEMUN."],
-  ["initial_review", "Initial Review", "Business details, address, and agreement are checked."],
-  ["zps_review", "ZPS Review", "Maker philosophy, ingredients, packaging, and documents are reviewed."],
-  ["final_decision", "Final Decision", "BEEMUN approves, rejects, or requests changes."],
-  ["unlocked", "Maker Dashboard Unlocked", "Product onboarding comes only after approval."],
+  ["submitted", "Application received", "Your India maker application is safely recorded."],
+  ["initial_review", "Completeness review", "Business identity, address, agreement, and documents are checked."],
+  ["zps_review", "ZPS review", "Maker philosophy, ingredients, packaging, and standards fit are reviewed."],
+  ["final_decision", "Final decision", "BEEMUN approves, rejects, or requests additional clarification."],
+  ["unlocked", "Maker workspace unlocked", "Product onboarding becomes available only after approval."],
 ]
 
 const stageIndexFor = (status?: string | null) => {
@@ -42,38 +42,47 @@ const stageIndexFor = (status?: string | null) => {
 }
 
 const statusCopy = (status?: string | null) => {
+  if (status === "draft") {
+    return {
+      label: "Application draft",
+      headline: "Your application is not submitted yet",
+      body: "Finish the guided application when you are ready. BEEMUN can only review submitted maker applications.",
+      next: "Complete and submit the application to start review.",
+    }
+  }
+
   if (status === "approved") {
     return {
       label: "Maker approved",
-      headline: "Maker Dashboard unlocked",
-      body: "BEEMUN approved your maker profile. Product onboarding is still a separate controlled phase.",
-      next: "Next: product onboarding will open in a later phase.",
+      headline: "Your maker workspace is approved",
+      body: "BEEMUN approved your maker profile. Product onboarding remains a separate controlled phase and will open when the next stage is ready.",
+      next: "Maker workspace unlocked. Product onboarding is coming next.",
     }
   }
 
   if (status === "rejected") {
     return {
       label: "Decision recorded",
-      headline: "Application rejected",
-      body: "BEEMUN has recorded a decision. Review notes explain the reason and any possible next steps.",
-      next: "Next: review notes and messages from BEEMUN.",
+      headline: "BEEMUN has recorded a decision",
+      body: "Your application was not approved in this review cycle. Review notes and messages explain the reason and any possible next steps.",
+      next: "Review the decision notes and messages from BEEMUN.",
     }
   }
 
   if (status === "under_review") {
     return {
-      label: "Application under review",
-      headline: "BEEMUN is reviewing your maker profile",
-      body: "Your business identity, documents, maker philosophy, packaging, and ZPS 100 fit are being reviewed.",
-      next: "Next: BEEMUN may send messages or tasks if clarification is needed.",
+      label: "Business review in progress",
+      headline: "BEEMUN is reviewing your business",
+      body: "Your business identity, uploaded documents, maker philosophy, packaging, and ZPS 100 fit are being reviewed by BEEMUN.",
+      next: "BEEMUN will request anything else here.",
     }
   }
 
   return {
-    label: "Application submitted",
-    headline: "Your application is in the review queue",
-    body: "BEEMUN received your India maker application. Product tools remain locked during review.",
-    next: "Next: initial completeness review.",
+    label: "Application received",
+    headline: "Your application is safely submitted",
+    body: "BEEMUN received your India maker application. Your maker workspace stays protected until the business review is complete.",
+    next: "Initial completeness review is next.",
   }
 }
 
@@ -91,16 +100,29 @@ const documentStatus = (status?: string | null) => {
   if (status === "needs_changes") return "Needs replacement"
   if (status === "rejected") return "Rejected"
   if (status === "submitted") return "Submitted"
-  return "Pending"
+  return "Not yet reviewed"
 }
 
 const messageText = (item: Record<string, any>) => item.body || item.text || ""
+
 const documentFileLabel = (document: Record<string, any>) => {
   return (
     document.metadata?.file_name ||
     document.file_name ||
     (document.file_url ? "Uploaded file" : "No file uploaded")
   )
+}
+
+const documentTone = (status?: string | null) => {
+  if (status === "approved") return "good"
+  if (status === "needs_changes" || status === "rejected") return "attention"
+  if (status === "submitted" || status === "under_review") return "active"
+  return "muted"
+}
+
+const taskLabel = (status?: string | null) => {
+  if (status === "completed") return "Completed"
+  return "Action requested"
 }
 
 export default function MakerPortalClient({
@@ -112,6 +134,7 @@ export default function MakerPortalClient({
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState("")
   const [error, setError] = useState("")
+  const [actionBusy, setActionBusy] = useState("")
 
   const vendor = data?.vendor
   const metadata = vendor?.metadata || {}
@@ -121,6 +144,13 @@ export default function MakerPortalClient({
   const status = statusCopy(vendor?.status)
   const tasks = useMemo(() => data?.tasks || [], [data?.tasks])
   const messages = useMemo(() => data?.messages || [], [data?.messages])
+  const documents = useMemo(() => data?.documents || [], [data?.documents])
+  const reviewNotes = Array.isArray(metadata.review_notes)
+    ? metadata.review_notes
+    : []
+  const openTasks = tasks.filter((task) => task.status !== "completed")
+  const uploadedDocuments = documents.filter((document) => document.file_url)
+  const missingDocuments = documents.filter((document) => !document.file_url)
   const latestReviewEvent = data?.review_events?.[data.review_events.length - 1]
 
   const load = async () => {
@@ -153,23 +183,31 @@ export default function MakerPortalClient({
     load()
   }, [])
 
-  const sendPortalAction = async (payload: Record<string, any>) => {
+  const sendPortalAction = async (
+    payload: Record<string, any>,
+    busyLabel = "portal-action"
+  ) => {
     setError("")
     setMessage("")
+    setActionBusy(busyLabel)
 
-    const response = await fetch("/api/beemun/maker-portal", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    })
-    const result = await response.json().catch(() => ({}))
+    try {
+      const response = await fetch("/api/beemun/maker-portal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+      const result = await response.json().catch(() => ({}))
 
-    if (!response.ok) {
-      throw new Error(result?.message || "Portal action failed.")
+      if (!response.ok) {
+        throw new Error(result?.message || "Portal action failed.")
+      }
+
+      setMessage("Saved. Your application portal is up to date.")
+      await load()
+    } finally {
+      setActionBusy("")
     }
-
-    setMessage("Saved.")
-    await load()
   }
 
   const submitMessage = async (event: FormEvent<HTMLFormElement>) => {
@@ -181,7 +219,7 @@ export default function MakerPortalClient({
     if (!text) return
 
     try {
-      await sendPortalAction({ action: "message", text })
+      await sendPortalAction({ action: "message", text }, "message")
       form.reset()
     } catch (sendError) {
       setError(sendError instanceof Error ? sendError.message : "Message failed.")
@@ -204,7 +242,7 @@ export default function MakerPortalClient({
         title,
         file_url: fileUrl || null,
         note: String(formData.get("note") || ""),
-      })
+      }, "document")
       form.reset()
     } catch (sendError) {
       setError(sendError instanceof Error ? sendError.message : "Document failed.")
@@ -216,7 +254,7 @@ export default function MakerPortalClient({
       {loading ? (
         <div className="beemun-portal-status-card">
           <p className="beemun-eyebrow">BEEMUN Maker Portal</p>
-          <h1>Loading your application...</h1>
+          <h1>Loading your application review...</h1>
         </div>
       ) : error ? (
         <p className="beemun-application-error">{error}</p>
@@ -242,9 +280,14 @@ export default function MakerPortalClient({
               <p className="beemun-eyebrow">{status.label}</p>
               <h1>{status.headline}</h1>
               <p>{status.body}</p>
+              <div className="beemun-portal-hero-facts">
+                <span>Submitted: {formatDate(vendor.submitted_at)}</span>
+                <span>{openTasks.length ? `${openTasks.length} action requested` : "No open tasks"}</span>
+                <span>{uploadedDocuments.length} document{uploadedDocuments.length === 1 ? "" : "s"} received</span>
+              </div>
             </div>
             <div className="beemun-lock-visual" aria-hidden="true">
-              <span>{isApproved ? "UNLOCKED" : "LOCKED"}</span>
+              <span>{isApproved ? "APPROVED" : "PROTECTED"}</span>
               <strong>{isApproved ? "OPEN" : "REVIEW"}</strong>
             </div>
           </div>
@@ -280,6 +323,32 @@ export default function MakerPortalClient({
                   </li>
                 ))}
               </ol>
+            </article>
+
+            <article className="beemun-portal-card beemun-portal-card-wide beemun-next-step-card">
+              <p className="beemun-eyebrow">What happens now</p>
+              <h2>
+                {openTasks.length
+                  ? "BEEMUN needs a response from you."
+                  : vendor.status === "draft"
+                  ? "Submit your application when it is ready."
+                  : vendor.status === "rejected"
+                  ? "Review the decision before taking next steps."
+                  : isApproved
+                  ? "Your maker status is approved."
+                  : "BEEMUN is reviewing your business."}
+              </h2>
+              <p>
+                {openTasks.length
+                  ? "Complete the requested tasks below so the review can continue without email chains."
+                  : vendor.status === "draft"
+                  ? "Your details are not in BEEMUN review yet. Return to the application flow to complete and submit."
+                  : vendor.status === "rejected"
+                  ? "Use the notes and messages below to understand the decision. Product tools remain unavailable."
+                  : isApproved
+                  ? "Your maker profile is approved. Product tools are intentionally not part of this Stage 2 release."
+                  : "You do not need to resubmit. We will request anything else here in the portal."}
+              </p>
             </article>
 
             <article className="beemun-portal-card">
@@ -377,12 +446,23 @@ export default function MakerPortalClient({
             <article className="beemun-portal-card">
               <p className="beemun-eyebrow">Review notes</p>
               <h2>BEEMUN reviewer context</h2>
-              <p>
-                {vendor.status_reason ||
-                  latestReviewEvent?.notes ||
-                  latestReviewEvent?.reason ||
-                  "No reviewer notes yet. BEEMUN will add notes if clarification or a decision is needed."}
-              </p>
+              {reviewNotes.length ? (
+                <div className="beemun-mini-list">
+                  {reviewNotes.slice(-3).map((note) => (
+                    <div key={note.id || note.created_at || note.note}>
+                      <span>{formatDate(note.created_at)}</span>
+                      <p>{note.note}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p>
+                  {vendor.status_reason ||
+                    latestReviewEvent?.notes ||
+                    latestReviewEvent?.reason ||
+                    "No reviewer notes yet. BEEMUN will add notes if clarification or a decision is needed."}
+                </p>
+              )}
             </article>
 
             <article className="beemun-portal-card">
@@ -392,18 +472,22 @@ export default function MakerPortalClient({
                 <div className="beemun-mini-list">
                   {messages.slice(-5).map((item) => (
                     <div key={item.id}>
-                      <span>{item.author_type || "message"}</span>
+                      <span>{item.author_type === "admin" ? "BEEMUN" : "You"}</span>
                       <p>{messageText(item)}</p>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p>No messages yet. BEEMUN will keep review communication here.</p>
+                <p className="beemun-empty-state">No messages yet. BEEMUN will keep review communication here, not in scattered email threads.</p>
               )}
               <form onSubmit={submitMessage}>
                 <textarea name="message" rows={3} placeholder="Reply to BEEMUN" />
-                <button className="beemun-btn-secondary" type="submit">
-                  Send message
+                <button
+                  className="beemun-btn-secondary"
+                  type="submit"
+                  disabled={actionBusy === "message"}
+                >
+                  {actionBusy === "message" ? "Sending..." : "Send message"}
                 </button>
               </form>
             </article>
@@ -417,35 +501,47 @@ export default function MakerPortalClient({
                     <div key={task.id}>
                       <strong>{task.title}</strong>
                       <p>{task.description || "No extra detail provided."}</p>
-                      <span>{task.status || "pending"}</span>
+                      <span>{taskLabel(task.status)}</span>
                       {task.status !== "completed" && (
                         <button
                           type="button"
-                          onClick={() =>
-                            sendPortalAction({
-                              action: "complete_task",
-                              task_id: task.id,
-                            })
-                          }
+                          disabled={actionBusy === task.id}
+                          onClick={async () => {
+                            try {
+                              await sendPortalAction(
+                                {
+                                  action: "complete_task",
+                                  task_id: task.id,
+                                },
+                                task.id
+                              )
+                            } catch (taskError) {
+                              setError(
+                                taskError instanceof Error
+                                  ? taskError.message
+                                  : "Task could not be updated."
+                              )
+                            }
+                          }}
                         >
-                          Mark completed
+                          {actionBusy === task.id ? "Saving..." : "Mark completed"}
                         </button>
                       )}
                     </div>
                   ))}
                 </div>
               ) : (
-                <p>No open tasks. BEEMUN may add tasks if more detail is needed.</p>
+                <p className="beemun-empty-state">No open tasks. If BEEMUN needs certificates, packaging images, or clarification, it will appear here.</p>
               )}
             </article>
 
             <article className="beemun-portal-card">
               <p className="beemun-eyebrow">Documents</p>
               <h2>Evidence and uploads</h2>
-              {(data?.documents || []).length ? (
+              {documents.length ? (
                 <div className="beemun-mini-list">
-                  {(data?.documents || []).map((document) => (
-                    <div key={document.id}>
+                  {documents.map((document) => (
+                    <div key={document.id} className={`beemun-document-row ${documentTone(document.status)}`}>
                       <strong>{document.title}</strong>
                       <span>{documentStatus(document.status)}</span>
                       <p>
@@ -467,14 +563,18 @@ export default function MakerPortalClient({
                   ))}
                 </div>
               ) : (
-                <p>No documents recorded yet.</p>
+                <p className="beemun-empty-state">No documents are attached yet. BEEMUN will request anything missing as a task.</p>
               )}
               <form onSubmit={submitDocument}>
                 <input name="title" placeholder="Document title" required />
                 <input name="file_url" placeholder="Secure document link if BEEMUN requested one" />
                 <textarea name="note" rows={2} placeholder="Optional note" />
-                <button className="beemun-btn-secondary" type="submit">
-                  Add document link/note
+                <button
+                  className="beemun-btn-secondary"
+                  type="submit"
+                  disabled={actionBusy === "document"}
+                >
+                  {actionBusy === "document" ? "Saving..." : "Add document link/note"}
                 </button>
               </form>
             </article>
@@ -485,16 +585,16 @@ export default function MakerPortalClient({
               </p>
               <h2>
                 {isApproved
-                  ? "Maker Dashboard unlocked"
-                  : "Product tools unlock after approval."}
+                  ? "Maker workspace unlocked"
+                  : "Maker workspace unlocks after approval."}
               </h2>
               <p>
                 {isApproved
-                  ? "Your maker profile is approved. Product onboarding, uploads, orders, inventory, payouts, and analytics are still not built in this phase."
-                  : "No product uploads, orders, analytics, payouts, shipping, or inventory tools are available during application review."}
+                  ? "Your maker profile is approved. Product onboarding, uploads, orders, inventory, payouts, and analytics are intentionally outside this Stage 2 release."
+                  : "Product uploads, orders, analytics, payouts, shipping, and inventory tools stay hidden while BEEMUN reviews your application."}
               </p>
               <button className="beemun-disabled-cta" type="button" disabled>
-                Add your first product - coming next
+                Add your first product - coming in Stage 3
               </button>
             </article>
           </div>

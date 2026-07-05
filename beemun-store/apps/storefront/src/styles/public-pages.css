@@ -589,6 +589,23 @@
   max-width: 720px;
 }
 
+.beemun-portal-hero-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.beemun-portal-hero-facts span {
+  background: rgba(255, 250, 240, .1);
+  border: 1px solid rgba(255, 250, 240, .2);
+  border-radius: 999px;
+  color: #fffaf0;
+  font-size: 12px;
+  font-weight: 950;
+  padding: 10px 13px;
+}
+
 .beemun-lock-visual {
   align-items: center;
   aspect-ratio: 1;
@@ -624,6 +641,13 @@
   display: grid;
   gap: 16px;
   padding: clamp(22px, 3vw, 32px);
+}
+
+.beemun-next-step-card {
+  background:
+    radial-gradient(circle at 95% 20%, rgba(174, 189, 148, .2), transparent 32%),
+    #fffdf6;
+  border-color: rgba(49, 69, 43, .22);
 }
 
 .beemun-portal-card-wide {
@@ -712,9 +736,37 @@
   gap: 10px;
 }
 
+.beemun-empty-state {
+  background: #f8f2e6;
+  border: 1px dashed rgba(49, 69, 43, .18);
+  border-radius: 16px;
+  padding: 14px;
+}
+
+.beemun-document-row {
+  border-left: 4px solid rgba(49, 69, 43, .18) !important;
+}
+
+.beemun-document-row.good {
+  border-left-color: #5f7d48 !important;
+}
+
+.beemun-document-row.active {
+  border-left-color: #9a7c3d !important;
+}
+
+.beemun-document-row.attention {
+  border-left-color: #9a4d35 !important;
+}
+
 .beemun-portal-card form {
   display: grid;
   gap: 10px;
+}
+
+.beemun-portal-card button:disabled {
+  cursor: not-allowed;
+  opacity: .55;
 }
 
 .beemun-disabled-cta {
