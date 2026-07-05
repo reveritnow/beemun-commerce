@@ -34,6 +34,7 @@ const errorMessageFrom = async (response: Response) => {
 
 export async function POST(request: NextRequest) {
   const backendUrl = process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL
+  const portalSecret = process.env.BEEMUN_PORTAL_API_SECRET
   const session = await getBeemunSession()
   const user = (session as any)?.user
 
@@ -57,6 +58,16 @@ export async function POST(request: NextRequest) {
     )
   }
 
+  if (!portalSecret) {
+    return NextResponse.json(
+      {
+        message:
+          "BEEMUN secure portal access is not configured. Please set BEEMUN_PORTAL_API_SECRET.",
+      },
+      { status: 503 }
+    )
+  }
+
   let payload: Record<string, unknown>
 
   try {
@@ -75,6 +86,7 @@ export async function POST(request: NextRequest) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "x-beemun-portal-secret": portalSecret,
         },
         body: JSON.stringify({
           ...payload,

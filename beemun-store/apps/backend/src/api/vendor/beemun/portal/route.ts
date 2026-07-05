@@ -1,6 +1,7 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { marketplaceServiceOf } from "../helpers"
 import {
+  assertPortalDocumentAccess,
   DocumentUploadError,
   metadataForUpload,
   storeDocumentUpload,
@@ -96,6 +97,17 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
   const marketplace = marketplaceServiceOf(req)
   const email = String(req.query.email || "").trim().toLowerCase()
 
+  try {
+    assertPortalDocumentAccess(req.headers)
+  } catch (error) {
+    if (error instanceof DocumentUploadError) {
+      res.status(error.status).json({ message: error.message, code: error.code })
+      return
+    }
+
+    throw error
+  }
+
   if (!email) {
     res.status(400).json({ message: "Applicant email is required." })
     return
@@ -189,6 +201,17 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
   const body = (req.body || {}) as Record<string, any>
   const email = String(body.email || "").trim().toLowerCase()
   const action = String(body.action || "")
+
+  try {
+    assertPortalDocumentAccess(req.headers)
+  } catch (error) {
+    if (error instanceof DocumentUploadError) {
+      res.status(error.status).json({ message: error.message, code: error.code })
+      return
+    }
+
+    throw error
+  }
 
   if (!email) {
     res.status(400).json({ message: "Applicant email is required." })

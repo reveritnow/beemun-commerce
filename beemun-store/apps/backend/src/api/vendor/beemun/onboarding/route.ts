@@ -3,13 +3,26 @@ import {
   createVendorFromOnboarding,
   onboardingErrorFromUnknown,
 } from "../helpers"
+import {
+  assertPortalDocumentAccess,
+  DocumentUploadError,
+} from "../document-storage"
 
 export async function POST(req: MedusaRequest, res: MedusaResponse) {
   try {
+    assertPortalDocumentAccess(req.headers)
     const result = await createVendorFromOnboarding(req)
 
     res.status(201).json(result)
   } catch (error) {
+    if (error instanceof DocumentUploadError) {
+      res.status(error.status).json({
+        message: error.message,
+        code: error.code,
+      })
+      return
+    }
+
     const logger = req.scope.resolve("logger")
     const publicError = onboardingErrorFromUnknown(error)
     const technicalMessage =

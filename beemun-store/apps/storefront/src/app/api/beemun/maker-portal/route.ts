@@ -4,6 +4,7 @@ import { getBeemunSession } from "../../../../lib/get-session"
 const cleanBackendUrl = (url: string) => url.replace(/\/+$/, "")
 
 const backendUrl = () => process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL
+const portalSecret = () => process.env.BEEMUN_PORTAL_API_SECRET
 
 const responseData = async (response: Response) => {
   const text = await response.text().catch(() => "")
@@ -46,6 +47,7 @@ const sessionEmail = async () => {
 export async function GET() {
   const email = await sessionEmail()
   const url = backendUrl()
+  const secret = portalSecret()
 
   if (!email) {
     return NextResponse.json({ message: "Sign in is required." }, { status: 401 })
@@ -58,12 +60,24 @@ export async function GET() {
     )
   }
 
+  if (!secret) {
+    return NextResponse.json(
+      { message: "BEEMUN secure portal access is not configured." },
+      { status: 503 }
+    )
+  }
+
   try {
     const response = await fetch(
       `${cleanBackendUrl(url)}/vendor/beemun/portal?email=${encodeURIComponent(
         email
       )}`,
-      { cache: "no-store" }
+      {
+        cache: "no-store",
+        headers: {
+          "x-beemun-portal-secret": secret,
+        },
+      }
     )
 
     const data = await responseData(response)
@@ -84,6 +98,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   const email = await sessionEmail()
   const url = backendUrl()
+  const secret = portalSecret()
 
   if (!email) {
     return NextResponse.json({ message: "Sign in is required." }, { status: 401 })
@@ -93,6 +108,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { message: "BEEMUN backend URL is not configured." },
       { status: 500 }
+    )
+  }
+
+  if (!secret) {
+    return NextResponse.json(
+      { message: "BEEMUN secure portal access is not configured." },
+      { status: 503 }
     )
   }
 
@@ -108,7 +130,10 @@ export async function POST(request: NextRequest) {
   try {
     const response = await fetch(`${cleanBackendUrl(url)}/vendor/beemun/portal`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-beemun-portal-secret": secret,
+      },
       body: JSON.stringify({ ...payload, email }),
       cache: "no-store",
     })
