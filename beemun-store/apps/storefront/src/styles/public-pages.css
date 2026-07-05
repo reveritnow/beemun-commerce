@@ -355,6 +355,111 @@
   padding: 16px;
 }
 
+.beemun-document-head {
+  align-items: start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.beemun-document-head strong {
+  color: #17281d;
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.beemun-document-head span {
+  background: #f4eddd;
+  border: 1px solid rgba(49, 69, 43, .12);
+  border-radius: 999px;
+  color: #31452b;
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 950;
+  padding: 7px 10px;
+  text-transform: uppercase;
+}
+
+.beemun-file-drop {
+  align-items: center;
+  background:
+    linear-gradient(135deg, rgba(255, 250, 240, .92), rgba(244, 237, 221, .72));
+  border: 1px dashed rgba(49, 69, 43, .32);
+  border-radius: 18px;
+  color: #31452b;
+  cursor: pointer;
+  display: flex !important;
+  font-weight: 950;
+  justify-content: center;
+  min-height: 92px;
+  padding: 18px;
+  text-align: center;
+  transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+
+.beemun-file-drop:hover {
+  border-color: rgba(49, 69, 43, .58);
+  box-shadow: 0 14px 32px rgba(49, 69, 43, .08);
+  transform: translateY(-1px);
+}
+
+.beemun-file-drop input {
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  width: 1px;
+}
+
+.beemun-upload-status {
+  align-items: center;
+  background: #f8f2e6;
+  border: 1px solid rgba(49, 69, 43, .12);
+  border-radius: 16px;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 12px;
+}
+
+.beemun-upload-status strong {
+  color: #17281d;
+  display: block;
+  font-size: 14px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.beemun-upload-status p,
+.beemun-upload-status span {
+  color: #6f7b66;
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 2px 0 0;
+}
+
+.beemun-upload-status button {
+  background: transparent;
+  border: 1px solid rgba(92, 75, 45, .2);
+  border-radius: 999px;
+  color: #5c3a2d;
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 950;
+  padding: 9px 11px;
+}
+
+.beemun-upload-error {
+  background: #fff2ec;
+  border: 1px solid rgba(157, 74, 45, .2);
+  border-radius: 14px;
+  color: #8b3f2b !important;
+  font-size: 13px !important;
+  line-height: 1.45 !important;
+  padding: 10px 12px;
+}
+
 .beemun-inline-check {
   align-items: center;
   display: flex !important;
@@ -764,6 +869,16 @@
   .beemun-wizard-actions button:first-child {
     justify-content: center;
     width: 100%;
+  }
+
+  .beemun-upload-status,
+  .beemun-document-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .beemun-document-head span {
+    align-self: flex-start;
   }
 
   .beemun-form-grid {

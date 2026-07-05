@@ -95,6 +95,13 @@ const documentStatus = (status?: string | null) => {
 }
 
 const messageText = (item: Record<string, any>) => item.body || item.text || ""
+const documentFileLabel = (document: Record<string, any>) => {
+  return (
+    document.metadata?.file_name ||
+    document.file_name ||
+    (document.file_url ? "Uploaded file" : "No file uploaded")
+  )
+}
 
 export default function MakerPortalClient({
   countryCode,
@@ -443,9 +450,19 @@ export default function MakerPortalClient({
                       <span>{documentStatus(document.status)}</span>
                       <p>
                         {document.file_url
-                          ? "File link received."
-                          : "Upload storage pending. BEEMUN may request a secure link."}
+                          ? documentFileLabel(document)
+                          : "No uploaded file yet. BEEMUN may request this as a task."}
                       </p>
+                      {document.file_url && (
+                        <a
+                          className="beemun-btn-secondary"
+                          href={document.file_url}
+                          rel="noreferrer"
+                          target="_blank"
+                        >
+                          View document
+                        </a>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -454,10 +471,10 @@ export default function MakerPortalClient({
               )}
               <form onSubmit={submitDocument}>
                 <input name="title" placeholder="Document title" required />
-                <input name="file_url" placeholder="Secure file link if requested" />
+                <input name="file_url" placeholder="Secure document link if BEEMUN requested one" />
                 <textarea name="note" rows={2} placeholder="Optional note" />
                 <button className="beemun-btn-secondary" type="submit">
-                  Add document note
+                  Add document link/note
                 </button>
               </form>
             </article>

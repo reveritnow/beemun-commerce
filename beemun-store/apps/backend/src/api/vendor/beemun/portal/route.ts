@@ -152,7 +152,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       status: body.file_url ? "submitted" : "draft",
       metadata: {
         source: "maker_application_portal",
-        storage_status: body.file_url ? "stored" : "upload_pending",
+        storage_status: body.file_url ? "stored" : "missing",
         applicant_note: body.note || null,
       },
     })

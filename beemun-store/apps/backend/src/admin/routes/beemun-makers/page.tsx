@@ -97,6 +97,14 @@ const categoriesText = (value?: string[] | string | null) => {
   return value || "Not provided"
 }
 
+const documentFileLabel = (document: Record<string, any>) => {
+  return (
+    document.metadata?.file_name ||
+    document.file_name ||
+    (document.file_url ? "Uploaded file" : "No file uploaded")
+  )
+}
+
 const normalizeError = async (response: Response) => {
   const data = await response.json().catch(() => null)
 
@@ -491,9 +499,19 @@ const MakerReviewPage = () => {
                         </div>
                         <p className="mt-1 text-ui-fg-subtle">
                           {document.file_url
-                            ? document.file_url
-                            : "No stored file yet. Applicant marked readiness or BEEMUN can request a secure link."}
+                            ? documentFileLabel(document)
+                            : "No uploaded file yet. Create a task if BEEMUN needs this document."}
                         </p>
+                        {document.file_url && (
+                          <a
+                            className="mt-2 inline-flex text-sm font-medium text-ui-fg-interactive"
+                            href={document.file_url}
+                            rel="noreferrer"
+                            target="_blank"
+                          >
+                            View document
+                          </a>
+                        )}
                         {document.metadata?.applicant_note && (
                           <p className="mt-1 text-ui-fg-subtle">
                             Note: {document.metadata.applicant_note}

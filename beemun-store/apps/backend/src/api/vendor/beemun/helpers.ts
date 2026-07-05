@@ -13,6 +13,14 @@ type VendorContext = {
 }
 
 const now = () => new Date()
+const MAX_DOCUMENT_BYTES = 2 * 1024 * 1024
+const MAX_TOTAL_DOCUMENT_BYTES = 3 * 1024 * 1024
+const ACCEPTED_DOCUMENT_TYPES = [
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]
 
 export class OnboardingError extends Error {
   status: number
@@ -282,7 +290,10 @@ const validateRequiredDocumentReadiness = (
   const providedTypes = new Set(
     documents
       .filter((item) => item && typeof item === "object")
-      .map((item) => nullableString((item as Record<string, unknown>).document_type))
+      .filter((item) => nullableString((item as Record<string, unknown>).file_url))
+      .map((item) =>
+        nullableString((item as Record<string, unknown>).document_type)
+      )
       .filter(Boolean) as string[]
   )
 
@@ -290,11 +301,93 @@ const validateRequiredDocumentReadiness = (
 
   if (missing.length) {
     throw new OnboardingError(
-      `Please confirm these required documents should be requested during review: ${missing.join(", ")}.`,
+      `Please upload these required documents before submitting: ${missing.join(", ")}.`,
       400,
       "missing_required_documents"
     )
   }
+}
+
+const validateUploadedDocument = (document: Record<string, any>) => {
+  const fileUrl = nullableString(document.file_url)
+
+  if (!fileUrl) {
+    return
+  }
+
+  const mimeType = nullableString(document.mime_type)
+  const fileSize =
+    typeof document.file_size === "number" ? document.file_size : Number.NaN
+
+  if (!mimeType || !ACCEPTED_DOCUMENT_TYPES.includes(mimeType)) {
+    throw new OnboardingError(
+      "Uploaded documents must be PDF, JPG, PNG, or WEBP files.",
+      400,
+      "invalid_document_type"
+    )
+  }
+
+  if (!Number.isFinite(fileSize) || fileSize <= 0) {
+    throw new OnboardingError(
+      "Uploaded document size is missing or invalid.",
+      400,
+      "invalid_document_size"
+    )
+  }
+
+  if (fileSize > MAX_DOCUMENT_BYTES) {
+    throw new OnboardingError(
+      "Uploaded documents must be 2 MB or smaller.",
+      400,
+      "document_too_large"
+    )
+  }
+
+  if (!fileUrl.startsWith(`data:${mimeType};base64,`)) {
+    throw new OnboardingError(
+      "Uploaded document data is invalid. Please replace the file and try again.",
+      400,
+      "invalid_document_data"
+    )
+  }
+}
+
+const validateTotalDocumentSize = (documents: unknown[]) => {
+  const total = documents.reduce<number>((sum, item) => {
+    if (!item || typeof item !== "object") {
+      return sum
+    }
+
+    const document = item as Record<string, any>
+    return sum + (typeof document.file_size === "number" ? document.file_size : 0)
+  }, 0)
+
+  if (total > MAX_TOTAL_DOCUMENT_BYTES) {
+    throw new OnboardingError(
+      "Uploaded documents are too large together. Please keep the total upload size under 3 MB.",
+      400,
+      "documents_too_large"
+    )
+  }
+}
+
+const sanitizeDocumentReadiness = (documents: Record<string, any>) => {
+  return Object.fromEntries(
+    Object.entries(documents).map(([key, value]) => {
+      const document = (value || {}) as Record<string, any>
+
+      return [
+        key,
+        {
+          file_name: document.fileName || null,
+          file_size: document.fileSize || null,
+          mime_type: document.mimeType || null,
+          note: document.note || "",
+          status: document.status || "idle",
+        },
+      ]
+    })
+  )
 }
 
 const ensurePublicApplicationEmailIsNew = async (
@@ -461,6 +554,18 @@ export const createVendorFromOnboarding = async (req: MedusaRequest) => {
   const metadata = metadataObject(body.metadata)
   const documents = Array.isArray(body.documents) ? body.documents : []
   validateRequiredDocumentReadiness(metadata, body, documents)
+  validateTotalDocumentSize(documents)
+  for (const item of documents) {
+    if (item && typeof item === "object") {
+      validateUploadedDocument(item as Record<string, any>)
+    }
+  }
+  const documentReadiness =
+    metadata.document_readiness &&
+    typeof metadata.document_readiness === "object" &&
+    !Array.isArray(metadata.document_readiness)
+      ? sanitizeDocumentReadiness(metadata.document_readiness as Record<string, any>)
+      : undefined
 
   const vendor = await marketplace.createVendors({
     name: body.name.trim(),
@@ -476,6 +581,7 @@ export const createVendorFromOnboarding = async (req: MedusaRequest) => {
     submitted_at: timestamp,
     metadata: {
       ...metadata,
+      ...(documentReadiness ? { document_readiness: documentReadiness } : {}),
       application_country: applicationCountry,
       country_name: "India",
       agreement_accepted: true,
@@ -538,7 +644,12 @@ export const createVendorFromOnboarding = async (req: MedusaRequest) => {
         status: document.file_url ? "submitted" : "draft",
         metadata: {
           source: "maker_application",
-          storage_status: document.file_url ? "stored" : "will_be_requested",
+          file_name: nullableString(document.file_name),
+          file_size:
+            typeof document.file_size === "number" ? document.file_size : null,
+          mime_type: nullableString(document.mime_type),
+          storage_provider: document.file_url ? "database_data_url" : null,
+          storage_status: document.file_url ? "stored" : "missing",
           applicant_note: nullableString(document.note),
           required: document.required === true,
         },
