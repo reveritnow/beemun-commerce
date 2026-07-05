@@ -132,6 +132,14 @@ const nullableString = (value?: unknown) => {
   return typeof value === "string" && value.trim() ? value.trim() : null
 }
 
+const readErrorMessage = (error: unknown) => {
+  if (error instanceof Error) {
+    return error.message
+  }
+
+  return String(error || "")
+}
+
 const metadataObject = (value: unknown) => {
   if (!value) {
     return {}
@@ -164,7 +172,7 @@ const normalizeCountryCode = (value?: unknown) => {
   const country = value.trim()
 
   if (!country) {
-    return null
+    return "IN"
   }
 
   if (/^[a-z]{2}$/i.test(country)) {
@@ -222,6 +230,69 @@ const validateOnboardingBody = (body: RequestBody) => {
       "Please accept the BEEMUN Maker Application Terms before submitting.",
       400,
       "agreement_required"
+    )
+  }
+}
+
+const requiredDocumentTypesFor = (
+  metadata: Record<string, unknown>,
+  body: RequestBody
+) => {
+  const required = new Set<string>()
+  const businessType = String(metadata.business_type || "")
+
+  if (nullableString(metadata.gstin)) {
+    required.add("gst_certificate")
+  }
+
+  if (["Partnership", "LLP", "Private Limited"].includes(businessType)) {
+    required.add("business_registration")
+  }
+
+  if (Array.isArray(metadata.required_document_types)) {
+    for (const item of metadata.required_document_types) {
+      if (typeof item === "string" && item.trim()) {
+        required.add(item.trim())
+      }
+    }
+  }
+
+  if (Array.isArray(body.required_document_types)) {
+    for (const item of body.required_document_types) {
+      if (typeof item === "string" && item.trim()) {
+        required.add(item.trim())
+      }
+    }
+  }
+
+  return required
+}
+
+const validateRequiredDocumentReadiness = (
+  metadata: Record<string, unknown>,
+  body: RequestBody,
+  documents: unknown[]
+) => {
+  const required = requiredDocumentTypesFor(metadata, body)
+
+  if (!required.size) {
+    return
+  }
+
+  const providedTypes = new Set(
+    documents
+      .filter((item) => item && typeof item === "object")
+      .map((item) => nullableString((item as Record<string, unknown>).document_type))
+      .filter(Boolean) as string[]
+  )
+
+  const missing = Array.from(required).filter((type) => !providedTypes.has(type))
+
+  if (missing.length) {
+    throw new OnboardingError(
+      `Please confirm these required documents should be requested during review: ${missing.join(", ")}.`,
+      400,
+      "missing_required_documents"
     )
   }
 }
@@ -314,9 +385,21 @@ export const onboardingErrorFromUnknown = (error: unknown) => {
 
   if (normalized.includes("country") || normalized.includes("country_code")) {
     return new OnboardingError(
-      "Please enter a valid country name or two-letter country code.",
+      "BEEMUN maker applications are currently open for India only.",
       400,
-      "invalid_country"
+      "unsupported_country"
+    )
+  }
+
+  if (
+    normalized.includes("beemun_vendor_document") ||
+    normalized.includes("vendor document") ||
+    normalized.includes("vendor_documents")
+  ) {
+    return new OnboardingError(
+      "The maker application was saved, but BEEMUN could not save document placeholders. Please open My Application and add document notes there.",
+      202,
+      "document_placeholder_error"
     )
   }
 
@@ -357,7 +440,9 @@ export const onboardingErrorFromUnknown = (error: unknown) => {
   }
 
   return new OnboardingError(
-    "The maker application could not be submitted. Please try again or contact BEEMUN.",
+    message
+      ? `The maker application could not be submitted: ${message}`
+      : "The maker application could not be submitted. Please try again or contact BEEMUN.",
     500,
     "unexpected_onboarding_error"
   )
@@ -375,6 +460,7 @@ export const createVendorFromOnboarding = async (req: MedusaRequest) => {
   const countryCode = normalizeCountryCode(body.country_code)
   const metadata = metadataObject(body.metadata)
   const documents = Array.isArray(body.documents) ? body.documents : []
+  validateRequiredDocumentReadiness(metadata, body, documents)
 
   const vendor = await marketplace.createVendors({
     name: body.name.trim(),
@@ -428,30 +514,48 @@ export const createVendorFromOnboarding = async (req: MedusaRequest) => {
     metadata: body.event_metadata ? metadataObject(body.event_metadata) : null,
   })
 
+  const documentErrors: string[] = []
+
   for (const item of documents) {
-    if (!item || typeof item !== "object") {
-      continue
+    try {
+      if (!item || typeof item !== "object") {
+        continue
+      }
+
+      const document = item as Record<string, any>
+      const title = nullableString(document.title)
+      const documentType = nullableString(document.document_type)
+
+      if (!title || !documentType) {
+        continue
+      }
+
+      await marketplace.createVendorDocuments({
+        vendor_id: vendor.id,
+        document_type: documentType,
+        title,
+        file_url: nullableString(document.file_url),
+        status: document.file_url ? "submitted" : "draft",
+        metadata: {
+          source: "maker_application",
+          storage_status: document.file_url ? "stored" : "will_be_requested",
+          applicant_note: nullableString(document.note),
+          required: document.required === true,
+        },
+      })
+    } catch (error) {
+      documentErrors.push(readErrorMessage(error))
     }
+  }
 
-    const document = item as Record<string, any>
-    const title = nullableString(document.title)
-    const documentType = nullableString(document.document_type)
-
-    if (!title || !documentType) {
-      continue
-    }
-
-    await marketplace.createVendorDocuments({
-      vendor_id: vendor.id,
-      document_type: documentType,
-      title,
-      file_url: nullableString(document.file_url),
-      status: document.file_url ? "submitted" : "draft",
+  if (documentErrors.length) {
+    await marketplace.updateVendors({
+      id: vendor.id,
       metadata: {
-        source: "maker_application",
-        storage_status: document.file_url ? "stored" : "upload_pending",
-        applicant_note: nullableString(document.note),
-        required: document.required === true,
+        ...(vendor.metadata || {}),
+        document_placeholder_error:
+          "Document placeholders could not be saved during application submit.",
+        document_placeholder_error_detail: documentErrors.join("; "),
       },
     })
   }

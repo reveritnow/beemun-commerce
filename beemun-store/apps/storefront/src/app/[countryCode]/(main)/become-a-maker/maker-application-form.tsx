@@ -57,27 +57,27 @@ const documentTypes = [
   {
     key: "gst_certificate",
     title: "GST certificate",
-    required: false,
+    requiredWhen: "Required when GSTIN is provided.",
   },
   {
     key: "business_registration",
     title: "Business registration/incorporation proof",
-    required: false,
+    requiredWhen: "Required for Partnership, LLP, and Private Limited.",
   },
   {
     key: "brand_logo",
     title: "Brand logo",
-    required: false,
+    requiredWhen: "Optional.",
   },
   {
     key: "certifications",
     title: "Certifications",
-    required: false,
+    requiredWhen: "Optional if available.",
   },
   {
     key: "supporting_documents",
     title: "Other supporting documents",
-    required: false,
+    requiredWhen: "Optional if useful for review.",
   },
 ]
 
@@ -136,7 +136,7 @@ const steps = [
   {
     title: "Documents",
     eyebrow: "Step 4",
-    summary: "Tell BEEMUN what documents are ready. Upload storage comes next.",
+    summary: "Confirm which documents BEEMUN should request during review.",
     fields: [],
   },
   {
@@ -227,6 +227,19 @@ export default function MakerApplicationForm({
     () => selectedCategories.join(", "),
     [selectedCategories]
   )
+  const requiredDocumentKeys = useMemo(() => {
+    const required = new Set<string>()
+
+    if (values.gstin.trim()) {
+      required.add("gst_certificate")
+    }
+
+    if (["Partnership", "LLP", "Private Limited"].includes(values.businessType)) {
+      required.add("business_registration")
+    }
+
+    return required
+  }, [values.businessType, values.gstin])
 
   const update = (key: keyof Values, value: string | boolean) => {
     setValues((currentValues) => ({ ...currentValues, [key]: value }))
@@ -255,6 +268,21 @@ export default function MakerApplicationForm({
   }
 
   const validateStep = () => {
+    if (current.title === "Documents") {
+      const missingDocument = documentTypes.find(
+        (document) =>
+          requiredDocumentKeys.has(document.key) &&
+          !documents[document.key].available
+      )
+
+      if (missingDocument) {
+        setError(
+          `${missingDocument.title} will be required for this application. Please confirm BEEMUN should request it during review.`
+        )
+        return false
+      }
+    }
+
     const missing = current.fields.find((field) => {
       if (field === "productCategories") {
         return selectedCategories.length === 0
@@ -334,7 +362,7 @@ export default function MakerApplicationForm({
             .map((item) => ({
               document_type: item.key,
               title: item.title,
-              required: item.required,
+              required: requiredDocumentKeys.has(item.key),
               note: documents[item.key].note || null,
             })),
           metadata: {
@@ -362,6 +390,7 @@ export default function MakerApplicationForm({
               country_name: "India",
             },
             document_readiness: documents,
+            required_document_types: Array.from(requiredDocumentKeys),
           },
           owner_metadata: {
             public_application_source: "india-maker-approval-journey",
@@ -593,9 +622,10 @@ export default function MakerApplicationForm({
             <div className="beemun-wizard-panel">
               <h3>Document readiness</h3>
               <p>
-                Secure file storage is not enabled in this MVP. Mark documents
-                you have ready and add notes. BEEMUN can request upload links or
-                replacements from your dashboard.
+                Secure file upload storage is not enabled in this MVP, so this
+                step does not upload files. Confirm which documents BEEMUN
+                should request during review. Admin can turn missing documents
+                into tasks in your application dashboard.
               </p>
               <div className="beemun-document-grid">
                 {documentTypes.map((document) => (
@@ -614,9 +644,14 @@ export default function MakerApplicationForm({
                       />
                       <span>{document.title}</span>
                     </label>
+                    <p>
+                      {requiredDocumentKeys.has(document.key)
+                        ? "Required for the details you entered. BEEMUN will request this during review."
+                        : document.requiredWhen}
+                    </p>
                     <textarea
                       rows={2}
-                      placeholder="Optional note for BEEMUN"
+                      placeholder="Optional note, such as already available, needs time, or not applicable"
                       value={documents[document.key].note}
                       onChange={(event) =>
                         updateDocument(document.key, "note", event.target.value)
