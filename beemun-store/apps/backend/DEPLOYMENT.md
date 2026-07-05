@@ -10,6 +10,7 @@ This backend is ready for Render, Railway, Koyeb, or any Node host with Postgres
 - `AUTH_CORS`: comma-separated auth/backend origins.
 - `JWT_SECRET`: long random production secret.
 - `COOKIE_SECRET`: long random production secret.
+- `BEEMUN_PORTAL_API_SECRET`: long random shared secret used by the Vercel storefront to request private maker document files from Railway. Set the exact same value in Vercel.
 - `NODE_ENV`: `production`.
 - `REDIS_URL`: optional if the provider includes Redis.
 
@@ -67,5 +68,6 @@ Set these on Vercel:
 - `NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY`: publishable key from the seeded backend.
 - `NEXT_PUBLIC_DEFAULT_REGION`: `gb`.
 - `NEXT_PUBLIC_BASE_URL`: deployed Vercel storefront URL.
+- `BEEMUN_PORTAL_API_SECRET`: same long random value configured on Railway. If missing, the storefront still builds and runs, but maker document viewing returns a controlled "document access is not configured" error.
 
 After these are set, redeploy Vercel. Homepage products, store listing, product page, cart, checkout, and region lookup will use the live backend.
