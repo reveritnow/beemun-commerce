@@ -1,4 +1,7 @@
 import { getApprovedMakerDashboardContext } from "../../../../../lib/data/maker-dashboard"
+import { listCategories } from "../../../../../lib/data/categories"
+import { listCollections } from "../../../../../lib/data/collections"
+import ProductOnboardingWizard from "../_components/product-onboarding-wizard"
 
 export default async function MakerDashboardProductOnboardingPage({
   params,
@@ -7,38 +10,24 @@ export default async function MakerDashboardProductOnboardingPage({
 }) {
   const { countryCode } = await params
   await getApprovedMakerDashboardContext(countryCode)
-
-  const steps = [
-    "Create Medusa draft product",
-    "Add variants, pricing, and product media",
-    "Add ingredients, materials, packaging, and ZPS disclosures",
-    "Submit to BEEMUN product review",
-    "Publish only after BEEMUN approval",
-  ]
+  const [categories, collectionResult] = await Promise.all([
+    listCategories({ limit: 100 }),
+    listCollections({ limit: "100", offset: "0" }),
+  ])
 
   return (
-    <div className="beemun-dashboard-grid">
-      <article className="beemun-dashboard-card beemun-dashboard-card-wide">
-        <p className="beemun-eyebrow">Product Onboarding</p>
-        <h2>Controlled product creation comes next</h2>
-        <p>
-          This shell reserves the product onboarding workspace without enabling
-          premature product publishing. The next implementation will reuse
-          Medusa products, variants, pricing, and media while keeping BEEMUN ZPS
-          review as the public gate.
-        </p>
-      </article>
-      {steps.map((step, index) => (
-        <article className="beemun-dashboard-card" key={step}>
-          <p className="beemun-eyebrow">Step {index + 1}</p>
-          <h2>{step}</h2>
-          <p>
-            {index === 0
-              ? "Products begin as drafts owned by your maker profile."
-              : "This step will open after the product onboarding milestone begins."}
-          </p>
-        </article>
-      ))}
-    </div>
+    <ProductOnboardingWizard
+      countryCode={countryCode}
+      categories={categories.map((category) => ({
+        id: category.id,
+        name: category.name,
+        handle: category.handle,
+      }))}
+      collections={collectionResult.collections.map((collection) => ({
+        id: collection.id,
+        title: collection.title,
+        handle: collection.handle,
+      }))}
+    />
   )
 }
