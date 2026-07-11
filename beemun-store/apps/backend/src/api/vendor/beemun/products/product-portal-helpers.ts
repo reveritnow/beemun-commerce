@@ -51,6 +51,81 @@ export const normalizeList = (value: unknown) =>
         .map((item) => item.trim())
     : []
 
+const numberValue = (value: unknown) => {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined
+}
+
+const booleanValue = (value: unknown) => value === true || value === "true"
+
+const buildVariantUpdates = (body: ProductPortalBody) => {
+  const rawVariants = Array.isArray(body.variants) ? body.variants : []
+
+  if (!rawVariants.length) {
+    return null
+  }
+
+  const values = rawVariants
+    .map((variant: Record<string, any>, index: number) =>
+      text(variant.title) || (index === 0 ? "Default" : `Variant ${index + 1}`)
+    )
+    .filter(Boolean) as string[]
+
+  return {
+    options: [
+      {
+        title: "Title",
+        values,
+      },
+    ],
+    variants: rawVariants.map((variant: Record<string, any>, index: number) => {
+      const title =
+        text(variant.title) || (index === 0 ? "Default" : `Variant ${index + 1}`)
+      const amount = numberValue(variant.price)
+      const currencyCode = String(variant.currency_code || "gbp")
+        .trim()
+        .toLowerCase()
+      const inventoryQuantity = numberValue(variant.inventory_quantity)
+      const manageInventory = booleanValue(variant.manage_inventory)
+      const allowBackorder = booleanValue(variant.allow_backorder)
+
+      return {
+        id: text(variant.id) || undefined,
+        title,
+        sku: text(variant.sku) || undefined,
+        manage_inventory: manageInventory,
+        allow_backorder: allowBackorder,
+        weight: numberValue(variant.weight),
+        length: numberValue(variant.length),
+        height: numberValue(variant.height),
+        width: numberValue(variant.width),
+        options: {
+          Title: title,
+        },
+        prices:
+          amount !== undefined
+            ? [
+                {
+                  amount,
+                  currency_code: currencyCode,
+                },
+              ]
+            : [],
+        metadata: {
+          inventory_quantity: inventoryQuantity ?? null,
+          beemun_inventory_status:
+            inventoryQuantity === undefined
+              ? "not_recorded"
+              : inventoryQuantity > 0
+              ? "in_stock"
+              : "out_of_stock",
+          continue_selling: allowBackorder,
+        },
+      }
+    }),
+  }
+}
+
 export const bodyOf = (req: MedusaRequest): ProductPortalBody =>
   (req.body || {}) as ProductPortalBody
 
@@ -184,9 +259,26 @@ export const buildReviewMetadata = (
     ...((existingMetadata || {}).media || {}),
     cover_image_url: text(body.cover_image_url),
     gallery_image_urls: normalizeList(body.gallery_image_urls),
+    uploaded_files: Array.isArray(body.uploaded_files)
+      ? body.uploaded_files.filter((item: unknown) => item && typeof item === "object")
+      : ((existingMetadata || {}).media || {}).uploaded_files || [],
     storage_provider:
       ((existingMetadata || {}).media || {}).storage_provider ||
-      "external_url_until_file_provider_enabled",
+      text(body.media_storage_provider) ||
+      "medusa_file_provider_pending",
+  },
+  inventory: {
+    ...((existingMetadata || {}).inventory || {}),
+    variants: Array.isArray(body.variants)
+      ? body.variants.map((variant: Record<string, any>) => ({
+          id: text(variant.id),
+          title: text(variant.title),
+          sku: text(variant.sku),
+          inventory_quantity: numberValue(variant.inventory_quantity) ?? null,
+          manage_inventory: booleanValue(variant.manage_inventory),
+          allow_backorder: booleanValue(variant.allow_backorder),
+        }))
+      : ((existingMetadata || {}).inventory || {}).variants || [],
   },
   beemun_product_information: {
     ...((existingMetadata || {}).beemun_product_information || {}),
@@ -236,6 +328,8 @@ export const updateMakerProductDraft = async (
   const coverImageUrl = text(body.cover_image_url) || galleryImageUrls[0] || null
   const metadata = buildReviewMetadata(body, review.metadata, member)
 
+  const variantUpdates = buildVariantUpdates(body)
+
   await productService.updateProducts(productId, {
     title,
     subtitle: text(body.brand) || undefined,
@@ -244,6 +338,7 @@ export const updateMakerProductDraft = async (
     collection_id: text(body.collection_id) || undefined,
     thumbnail: coverImageUrl || undefined,
     images: galleryImageUrls.map((url) => ({ url })),
+    ...(variantUpdates || {}),
     metadata: {
       ...(product.metadata || {}),
       beemun_vendor_id: context.vendor.id,
@@ -267,6 +362,62 @@ export const updateMakerProductDraft = async (
     vendor_product: vendorProduct,
     product_review: updatedReview,
     product: updatedProduct,
+  }
+}
+
+export const archiveMakerProduct = async (
+  req: MedusaRequest,
+  productId: string
+) => {
+  const body = bodyOf(req)
+  const context = await resolveApprovedMakerProduct(req, productId)
+  const { marketplace, productService, member, vendorProduct, review, product } = context
+
+  if (["published"].includes(review.status)) {
+    throw new ProductPortalError(
+      "Published products must be hidden or unpublished by BEEMUN before maker archiving.",
+      409,
+      "product_published"
+    )
+  }
+
+  const timestamp = now()
+  const updatedReview = await marketplace.updateProductReviews({
+    id: review.id,
+    status: "archived",
+    public_visibility_eligible: false,
+    archived_at: timestamp,
+    metadata: {
+      ...(review.metadata || {}),
+      archived_by_vendor_member_id: member.id,
+      archive_reason: text(body.reason),
+    },
+  })
+
+  await marketplace.createProductReviewEvents({
+    product_review_id: review.id,
+    from_status: review.status,
+    to_status: "archived",
+    actor_type: "vendor",
+    actor_user_id: member.external_auth_id || null,
+    reason: body.reason || "Maker archived product",
+    notes: text(body.notes),
+    metadata: { vendor_member_id: member.id },
+  })
+
+  await productService.updateProducts(productId, {
+    metadata: {
+      ...(product.metadata || {}),
+      beemun_zps_status: "archived",
+      beemun_zps_approved: false,
+      beemun_public_visibility_eligible: false,
+    },
+  })
+
+  return {
+    vendor_product: vendorProduct,
+    product_review: updatedReview,
+    product: await safeProduct(productService, productId),
   }
 }
 
@@ -332,3 +483,5 @@ export const resubmitMakerProduct = async (
     product: updatedProduct,
   }
 }
+
+

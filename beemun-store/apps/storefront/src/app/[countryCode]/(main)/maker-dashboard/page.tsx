@@ -1,4 +1,4 @@
-import Link from "next/link"
+﻿import Link from "next/link"
 import { getApprovedMakerDashboardContext } from "../../../../lib/data/maker-dashboard"
 import {
   formatDashboardDate,
@@ -43,7 +43,7 @@ export default async function MakerDashboardOverviewPage({
 
       <article className="beemun-dashboard-card">
         <p className="beemun-eyebrow">Next recommended action</p>
-        <h2>Prepare your first product for review</h2>
+        <h2>Manage your product catalog</h2>
         <p>
           Product creation is intentionally staged. The next milestone will add
           draft creation using Medusa products plus BEEMUN ZPS disclosure data.
@@ -52,7 +52,7 @@ export default async function MakerDashboardOverviewPage({
           className="beemun-btn-secondary"
           href={`/${countryCode}/maker-dashboard/product-onboarding`}
         >
-          View onboarding plan
+          Start product onboarding
         </Link>
       </article>
 
@@ -89,3 +89,4 @@ export default async function MakerDashboardOverviewPage({
     </div>
   )
 }
+

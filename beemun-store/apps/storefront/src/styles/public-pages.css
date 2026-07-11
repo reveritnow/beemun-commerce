@@ -1615,3 +1615,119 @@
     grid-template-columns: 1fr;
   }
 }
+
+.beemun-product-toolbar,
+.beemun-product-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.beemun-product-toolbar input,
+.beemun-product-toolbar select {
+  background: #fffef9;
+  border: 1px solid rgba(42, 61, 49, 0.14);
+  border-radius: 14px;
+  color: var(--beemun-ink);
+  min-height: 44px;
+  padding: 0.7rem 0.85rem;
+}
+
+.beemun-product-toolbar input {
+  flex: 1 1 220px;
+}
+
+.beemun-product-tabs {
+  background: rgba(255, 254, 249, 0.72);
+  border: 1px solid rgba(42, 61, 49, 0.12);
+  border-radius: 20px;
+  padding: 0.45rem;
+}
+
+.beemun-product-tabs button {
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  color: var(--beemun-muted);
+  cursor: pointer;
+  font-weight: 750;
+  padding: 0.65rem 0.9rem;
+}
+
+.beemun-product-tabs button.active,
+.beemun-product-tabs button:hover {
+  background: var(--beemun-forest);
+  color: #fffef9;
+}
+
+.beemun-product-list-image {
+  align-items: center;
+  aspect-ratio: 4 / 3;
+  background: linear-gradient(135deg, #f4efe3, #e6efe5);
+  border: 1px solid rgba(42, 61, 49, 0.12);
+  border-radius: 18px;
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1rem;
+  overflow: hidden;
+}
+
+.beemun-product-list-image img,
+.beemun-media-row img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.beemun-product-list-image span {
+  color: var(--beemun-forest);
+  font-size: 0.78rem;
+  font-weight: 850;
+  letter-spacing: 0.14em;
+}
+
+.beemun-media-upload {
+  align-items: center;
+  background: #fff8ef;
+  border: 1px dashed rgba(45, 84, 64, 0.28);
+  border-radius: 18px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  margin: 1rem 0;
+  padding: 1rem;
+}
+
+.beemun-media-upload span {
+  color: var(--beemun-forest);
+  font-weight: 850;
+}
+
+.beemun-media-row img {
+  border-radius: 14px;
+  max-height: 120px;
+}
+
+.beemun-checkbox-row {
+  align-items: center;
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 0.6rem;
+}
+
+.beemun-checkbox-row input {
+  min-height: auto !important;
+  width: auto !important;
+}
+
+@media (max-width: 680px) {
+  .beemun-product-toolbar,
+  .beemun-product-tabs {
+    flex-direction: column;
+  }
+
+  .beemun-product-tabs button {
+    text-align: left;
+  }
+}

@@ -1,4 +1,4 @@
-import Link from "next/link"
+﻿import Link from "next/link"
 import { MakerDashboardContext } from "../../../../../lib/data/maker-dashboard"
 
 export const dashboardLinks = [
@@ -37,13 +37,15 @@ export const shellMetrics = (context: MakerDashboardContext) => {
       review.status
     )
   )
-  const publishedReviews = reviews.filter(
-    (review) => review.status === "published"
-  )
+  const publishedReviews = reviews.filter((review) => review.status === "published")
+  const drafts = reviews.filter((review) => review.status === "draft")
+  const needsChanges = reviews.filter((review) => review.status === "needs_changes")
 
   return {
     products: products.length,
+    drafts: drafts.length,
     openReviews: openReviews.length,
+    needsChanges: needsChanges.length,
     published: publishedReviews.length,
     messages: (context.messages || []).length,
   }
@@ -106,3 +108,4 @@ export function MakerDashboardEmpty({
     </article>
   )
 }
+
