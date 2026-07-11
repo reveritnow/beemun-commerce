@@ -1,4 +1,4 @@
-# BEEMUN Medusa Backend Deployment
+﻿# BEEMUN Medusa Backend Deployment
 
 This backend is ready for Render, Railway, Koyeb, or any Node host with Postgres. The storefront keeps its fallback behavior, but real catalog, cart, checkout, pricing, regions, and product pages need a live Medusa URL plus publishable key.
 
@@ -105,4 +105,5 @@ Security notes:
 - Only approved maker members can upload product media.
 - The backend verifies the product belongs to the signed-in maker before uploading.
 - Product media edits are allowed only for `draft` and `needs_changes` product reviews.
-- Product images are stored as public object URLs so they can render after admin approval and publish. Product visibility is still controlled by Medusa product status plus BEEMUN ZPS approval gates.
+- Product images are stored as private Medusa/R2 file objects during draft and review. Maker/admin previews are served through protected BEEMUN routes. Published products use stable public BEEMUN media routes gated by published ProductReview state.
+

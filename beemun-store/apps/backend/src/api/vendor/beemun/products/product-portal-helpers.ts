@@ -46,9 +46,7 @@ export const text = (value: unknown) =>
 
 export const normalizeList = (value: unknown) =>
   Array.isArray(value)
-    ? value
-        .filter((item) => typeof item === "string" && item.trim())
-        .map((item) => item.trim())
+    ? value.filter((item) => typeof item === "string" && item.trim()).map((item) => item.trim())
     : []
 
 const numberValue = (value: unknown) => {
@@ -57,6 +55,68 @@ const numberValue = (value: unknown) => {
 }
 
 const booleanValue = (value: unknown) => value === true || value === "true"
+
+const normalizeMediaFiles = (value: unknown, productId: string) =>
+  Array.isArray(value)
+    ? value
+        .filter((item) => item && typeof item === "object")
+        .map((item: Record<string, any>) => {
+          const fileId = text(item.file_id || item.id)
+
+          if (!fileId) {
+            return null
+          }
+
+          return {
+            file_id: fileId,
+            original_filename: text(item.original_filename),
+            mime_type: text(item.mime_type),
+            file_size: item.file_size ?? null,
+            storage_provider: text(item.storage_provider) || "medusa_file_s3",
+            preview_url: `/api/beemun/maker-dashboard/products/${productId}/media/${fileId}`,
+            admin_url: `/admin/beemun/products/${productId}/media/${fileId}`,
+            public_url: `/store/beemun/products/${productId}/media/${fileId}`,
+          }
+        })
+        .filter(Boolean) as Array<Record<string, any>>
+    : []
+
+const resolveFileService = (req: MedusaRequest) => {
+  try {
+    return req.scope.resolve("file") as Record<string, any>
+  } catch {
+    return null
+  }
+}
+
+const deleteDroppedPrivateFiles = async ({
+  req,
+  previousFiles,
+  nextFiles,
+}: {
+  req: MedusaRequest
+  previousFiles: Array<Record<string, any>>
+  nextFiles: Array<Record<string, any>>
+}) => {
+  const fileService = resolveFileService(req)
+
+  if (!fileService || typeof fileService.deleteFiles !== "function") {
+    return
+  }
+
+  const nextIds = new Set(nextFiles.map((file) => file.file_id).filter(Boolean))
+  const droppedIds = previousFiles
+    .map((file) => file.file_id)
+    .filter((fileId) => fileId && !nextIds.has(fileId))
+
+  for (const fileId of droppedIds) {
+    try {
+      await fileService.deleteFiles(fileId)
+    } catch {
+      // Best-effort cleanup. Product save should not fail because an old object was already gone.
+    }
+  }
+}
 
 const buildVariantUpdates = (body: ProductPortalBody) => {
   const rawVariants = Array.isArray(body.variants) ? body.variants : []
@@ -79,12 +139,9 @@ const buildVariantUpdates = (body: ProductPortalBody) => {
       },
     ],
     variants: rawVariants.map((variant: Record<string, any>, index: number) => {
-      const title =
-        text(variant.title) || (index === 0 ? "Default" : `Variant ${index + 1}`)
+      const title = text(variant.title) || (index === 0 ? "Default" : `Variant ${index + 1}`)
       const amount = numberValue(variant.price)
-      const currencyCode = String(variant.currency_code || "gbp")
-        .trim()
-        .toLowerCase()
+      const currencyCode = String(variant.currency_code || "gbp").trim().toLowerCase()
       const inventoryQuantity = numberValue(variant.inventory_quantity)
       const manageInventory = booleanValue(variant.manage_inventory)
       const allowBackorder = booleanValue(variant.allow_backorder)
@@ -237,61 +294,69 @@ export const resolveApprovedMakerProduct = async (
 export const buildReviewMetadata = (
   body: ProductPortalBody,
   existingMetadata: Record<string, any> | null | undefined,
-  member: Record<string, any>
-) => ({
-  ...(existingMetadata || {}),
-  source: "maker_dashboard_product_editor",
-  updated_by_vendor_member_id: member.id,
-  basic_information: {
-    ...((existingMetadata || {}).basic_information || {}),
-    brand: text(body.brand),
-    short_description: text(body.short_description),
-    long_description: text(body.long_description),
-  },
-  taxonomy: {
-    ...((existingMetadata || {}).taxonomy || {}),
-    category_ids: normalizeList(body.category_ids),
-    collection_id: text(body.collection_id),
-    product_type: text(body.product_type),
-    tags: normalizeList(body.tags),
-  },
-  media: {
-    ...((existingMetadata || {}).media || {}),
-    cover_image_url: text(body.cover_image_url),
-    gallery_image_urls: normalizeList(body.gallery_image_urls),
-    uploaded_files: Array.isArray(body.uploaded_files)
-      ? body.uploaded_files.filter((item: unknown) => item && typeof item === "object")
-      : ((existingMetadata || {}).media || {}).uploaded_files || [],
-    storage_provider:
-      ((existingMetadata || {}).media || {}).storage_provider ||
-      text(body.media_storage_provider) ||
-      "medusa_file_provider_pending",
-  },
-  inventory: {
-    ...((existingMetadata || {}).inventory || {}),
-    variants: Array.isArray(body.variants)
-      ? body.variants.map((variant: Record<string, any>) => ({
-          id: text(variant.id),
-          title: text(variant.title),
-          sku: text(variant.sku),
-          inventory_quantity: numberValue(variant.inventory_quantity) ?? null,
-          manage_inventory: booleanValue(variant.manage_inventory),
-          allow_backorder: booleanValue(variant.allow_backorder),
-        }))
-      : ((existingMetadata || {}).inventory || {}).variants || [],
-  },
-  beemun_product_information: {
-    ...((existingMetadata || {}).beemun_product_information || {}),
-    ingredients: text(body.ingredients),
-    materials: text(body.materials),
-    packaging: text(body.packaging),
-    usage: text(body.usage),
-    care_instructions: text(body.care_instructions),
-    certifications: text(body.certifications),
-    claims: text(body.claims),
-    warnings: text(body.warnings),
-  },
-})
+  member: Record<string, any>,
+  productId: string
+) => {
+  const privateMediaFiles = normalizeMediaFiles(body.media_files, productId)
+  const privateGalleryUrls = privateMediaFiles.map((file) => file.preview_url)
+  const safeExternalGallery = normalizeList(body.gallery_image_urls).filter(
+    (url) => !url.includes("/media/")
+  )
+
+  return {
+    ...(existingMetadata || {}),
+    source: "maker_dashboard_product_editor",
+    updated_by_vendor_member_id: member.id,
+    basic_information: {
+      ...((existingMetadata || {}).basic_information || {}),
+      brand: text(body.brand),
+      short_description: text(body.short_description),
+      long_description: text(body.long_description),
+    },
+    taxonomy: {
+      ...((existingMetadata || {}).taxonomy || {}),
+      category_ids: normalizeList(body.category_ids),
+      collection_id: text(body.collection_id),
+      product_type: text(body.product_type),
+      tags: normalizeList(body.tags),
+    },
+    media: {
+      ...((existingMetadata || {}).media || {}),
+      cover_image_url: text(body.cover_image_url),
+      gallery_image_urls: privateGalleryUrls.length ? privateGalleryUrls : safeExternalGallery,
+      private_media_files: privateMediaFiles,
+      storage_provider: privateMediaFiles.length
+        ? "medusa_file_s3_private"
+        : text(body.media_storage_provider) ||
+          ((existingMetadata || {}).media || {}).storage_provider ||
+          "external_url_reference",
+    },
+    inventory: {
+      ...((existingMetadata || {}).inventory || {}),
+      variants: Array.isArray(body.variants)
+        ? body.variants.map((variant: Record<string, any>) => ({
+            id: text(variant.id),
+            title: text(variant.title),
+            sku: text(variant.sku),
+            inventory_quantity: numberValue(variant.inventory_quantity) ?? null,
+            manage_inventory: booleanValue(variant.manage_inventory),
+            allow_backorder: booleanValue(variant.allow_backorder),
+          }))
+        : ((existingMetadata || {}).inventory || {}).variants || [],
+    },
+    beemun_product_information: {
+      ...((existingMetadata || {}).beemun_product_information || {}),
+      ingredients: text(body.ingredients),
+      materials: text(body.materials),
+      packaging: text(body.packaging),
+      usage: text(body.usage),
+      care_instructions: text(body.care_instructions),
+      certifications: text(body.certifications),
+      claims: text(body.claims),
+      warnings: text(body.warnings),
+    },
+  }
+}
 
 export const updateMakerProductDraft = async (
   req: MedusaRequest,
@@ -324,10 +389,13 @@ export const updateMakerProductDraft = async (
     )
   }
 
-  const galleryImageUrls = normalizeList(body.gallery_image_urls)
-  const coverImageUrl = text(body.cover_image_url) || galleryImageUrls[0] || null
-  const metadata = buildReviewMetadata(body, review.metadata, member)
-
+  const previousPrivateFiles = Array.isArray(review.metadata?.media?.private_media_files)
+    ? review.metadata.media.private_media_files
+    : []
+  const metadata = buildReviewMetadata(body, review.metadata, member, productId)
+  const privateMediaFiles = Array.isArray(metadata.media?.private_media_files)
+    ? metadata.media.private_media_files
+    : []
   const variantUpdates = buildVariantUpdates(body)
 
   await productService.updateProducts(productId, {
@@ -336,8 +404,8 @@ export const updateMakerProductDraft = async (
     description: text(body.long_description) || shortDescription || undefined,
     category_ids: normalizeList(body.category_ids),
     collection_id: text(body.collection_id) || undefined,
-    thumbnail: coverImageUrl || undefined,
-    images: galleryImageUrls.map((url) => ({ url })),
+    thumbnail: null,
+    images: [],
     ...(variantUpdates || {}),
     metadata: {
       ...(product.metadata || {}),
@@ -347,6 +415,12 @@ export const updateMakerProductDraft = async (
       beemun_public_visibility_eligible: false,
       maker_brand: text(body.brand),
     },
+  })
+
+  await deleteDroppedPrivateFiles({
+    req,
+    previousFiles: previousPrivateFiles,
+    nextFiles: privateMediaFiles,
   })
 
   const updatedReview = await marketplace.updateProductReviews({
@@ -406,6 +480,8 @@ export const archiveMakerProduct = async (
   })
 
   await productService.updateProducts(productId, {
+    thumbnail: null,
+    images: [],
     metadata: {
       ...(product.metadata || {}),
       beemun_zps_status: "archived",
@@ -467,6 +543,8 @@ export const resubmitMakerProduct = async (
   })
 
   await productService.updateProducts(productId, {
+    thumbnail: null,
+    images: [],
     metadata: {
       ...(product.metadata || {}),
       beemun_zps_status: "submitted",
@@ -483,5 +561,3 @@ export const resubmitMakerProduct = async (
     product: updatedProduct,
   }
 }
-
-

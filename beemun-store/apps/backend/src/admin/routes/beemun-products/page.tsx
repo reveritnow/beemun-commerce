@@ -91,7 +91,18 @@ const taxonomy = (item?: ReviewItem | null) => readMetadata(item).taxonomy || {}
 const basicInfo = (item?: ReviewItem | null) =>
   readMetadata(item).basic_information || {}
 
-const imagesFor = (product?: Record<string, any> | null) => {
+const imagesFor = (item?: ReviewItem | null) => {
+  const media = readMetadata(item).media || {}
+  const privateFiles = Array.isArray(media.private_media_files) ? media.private_media_files : []
+  const privateUrls = privateFiles
+    .map((file: Record<string, any>) => file.admin_url)
+    .filter(Boolean)
+
+  if (privateUrls.length && item?.product_review?.status !== "published") {
+    return privateUrls
+  }
+
+  const product = item?.product
   const images = Array.isArray(product?.images) ? product?.images : []
   const urls = images.map((image: Record<string, any>) => image.url).filter(Boolean)
 
@@ -169,7 +180,7 @@ const latestActivity = (item?: ReviewItem | null) => {
 const riskFlagsFor = (item?: ReviewItem | null) => {
   const info = beemunInfo(item)
   const product = item?.product
-  const images = imagesFor(product)
+  const images = imagesFor(item)
   const variants = Array.isArray(product?.variants) ? product?.variants : []
   const flags: string[] = []
 
@@ -276,7 +287,7 @@ function ProductReviewWorkspace() {
   const metadata = readMetadata(selected)
   const info = beemunInfo(selected)
   const variants = Array.isArray(product?.variants) ? product?.variants : []
-  const images = imagesFor(product)
+  const images = imagesFor(selected)
   const riskFlags = riskFlagsFor(selected)
 
   const renderOverview = () => (
@@ -590,4 +601,8 @@ export const config = defineRouteConfig({
 })
 
 export default ProductReviewWorkspace
+
+
+
+
 

@@ -1,4 +1,4 @@
-import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
+﻿import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import {
   ContainerRegistrationKeys,
   ModuleRegistrationName,
@@ -262,8 +262,8 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     shipping_profile_id: shippingProfileId,
     category_ids: normalizeList(body.category_ids),
     collection_id: text(body.collection_id) || undefined,
-    thumbnail: coverImageUrl || undefined,
-    images: galleryImageUrls.map((url) => ({ url })),
+    thumbnail: undefined,
+    images: [],
     options: [
       {
         title: "Title",
@@ -330,4 +330,6 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     product_review: review,
   })
 }
+
+
 

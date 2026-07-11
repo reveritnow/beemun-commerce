@@ -1,4 +1,4 @@
-import { MedusaRequest } from "@medusajs/framework/http"
+﻿import { MedusaRequest } from "@medusajs/framework/http"
 import {
   ModuleRegistrationName,
   ProductStatus,
@@ -286,6 +286,16 @@ export const publishApprovedProduct = async (
 
   const timestamp = now()
   const product = await productService.retrieveProduct(productId)
+  const privateMediaFiles = Array.isArray(review.metadata?.media?.private_media_files)
+    ? review.metadata.media.private_media_files
+    : []
+  const publicMediaUrls = privateMediaFiles
+    .map((file: Record<string, any>) => file.public_url || `/store/beemun/products/${productId}/media/${file.file_id}`)
+    .filter(Boolean)
+  const fallbackMediaUrls = Array.isArray(review.metadata?.media?.gallery_image_urls)
+    ? review.metadata.media.gallery_image_urls.filter((url: string) => !url.includes("/api/beemun/"))
+    : []
+  const publicGalleryUrls = publicMediaUrls.length ? publicMediaUrls : fallbackMediaUrls
   const metadata = {
     ...(product.metadata || {}),
     beemun_zps_status: "approved",
@@ -296,6 +306,8 @@ export const publishApprovedProduct = async (
 
   await productService.updateProducts(productId, {
     status: ProductStatus.PUBLISHED,
+    thumbnail: publicGalleryUrls[0] || product.thumbnail || undefined,
+    images: publicGalleryUrls.map((url: string) => ({ url })),
     metadata,
   })
 
@@ -307,6 +319,10 @@ export const publishApprovedProduct = async (
     metadata: {
       ...(review.metadata || {}),
       ...(body.metadata || {}),
+      media: {
+        ...((review.metadata || {}).media || {}),
+        public_gallery_image_urls: publicGalleryUrls,
+      },
     },
   })
 
@@ -323,3 +339,4 @@ export const publishApprovedProduct = async (
 
   return updatedReview
 }
+

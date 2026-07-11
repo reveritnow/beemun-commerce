@@ -7,6 +7,16 @@ import { formatDashboardDate, reviewStatusLabel } from "./dashboard-ui"
 
 type Option = { id: string; name?: string; title?: string; handle?: string }
 type ProductPayload = Record<string, any>
+type MediaFile = {
+  file_id: string
+  preview_url: string
+  admin_url?: string
+  public_url?: string
+  original_filename?: string
+  mime_type?: string
+  file_size?: number
+  storage_provider?: string
+}
 type VariantForm = {
   id?: string
   title: string
@@ -145,6 +155,11 @@ const buildForm = (data: ProductPayload) => {
   }
 }
 
+const buildMediaFiles = (data: ProductPayload): MediaFile[] => {
+  const files = data.product_review?.metadata?.media?.private_media_files
+  return Array.isArray(files) ? files.filter((file) => file?.file_id && file?.preview_url) : []
+}
+
 const buildVariants = (data: ProductPayload): VariantForm[] => {
   const variants = Array.isArray(data.product?.variants) ? data.product.variants : []
   const reviewInventory = data.product_review?.metadata?.inventory?.variants || []
@@ -205,6 +220,7 @@ export default function ProductReviewEditor({
   const [data, setData] = useState<ProductPayload | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [variants, setVariants] = useState<VariantForm[]>([emptyVariant()])
+  const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([])
   const [activeTab, setActiveTab] = useState(tabs[0])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -234,6 +250,7 @@ export default function ProductReviewEditor({
         setData(payload)
         setForm(buildForm(payload))
         setVariants(buildVariants(payload))
+        setMediaFiles(buildMediaFiles(payload))
       } catch (loadError) {
         if (!mounted) return
         setError(loadError instanceof Error ? loadError.message : "This product could not be loaded.")
@@ -290,6 +307,9 @@ export default function ProductReviewEditor({
     tags: trimList(form.tags),
     cover_image_url: form.cover_image_url,
     gallery_image_urls: form.gallery_image_urls.filter((url) => url.trim()),
+    media_files: mediaFiles.filter((file) =>
+      form.gallery_image_urls.includes(file.preview_url) || form.cover_image_url === file.preview_url
+    ),
     variants: variants.map((variant) => ({
       ...variant,
       price: variant.price ? Number(variant.price) : undefined,
@@ -411,8 +431,15 @@ export default function ProductReviewEditor({
       })
       const result = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(result?.message || "BEEMUN could not upload this image.")
-      const url = result.file?.url
-      if (!url) throw new Error("The upload did not return an image URL.")
+      const uploadedFile = result.file as MediaFile | undefined
+      const url = uploadedFile?.preview_url
+      if (!uploadedFile?.file_id || !url) {
+        throw new Error("The upload did not return a protected image preview.")
+      }
+      setMediaFiles((current) => [
+        ...current.filter((item) => item.file_id !== uploadedFile.file_id),
+        uploadedFile,
+      ])
       setForm((current) => ({
         ...current,
         cover_image_url: current.cover_image_url || url,
@@ -494,7 +521,11 @@ export default function ProductReviewEditor({
             <label><span>Cover Image URL</span><input value={form.cover_image_url} disabled={!editable} onChange={(event) => update("cover_image_url", event.target.value)} /></label>
           </div>
           <div className="beemun-media-list">
-            {form.gallery_image_urls.map((url, index) => <div className="beemun-media-row" key={`${index}-${url}`}><label><span>Gallery image {index + 1}</span><input value={url} disabled={!editable} onChange={(event) => updateGallery(index, event.target.value)} /></label>{url && <img alt="Product gallery preview" src={url} />}{editable && <div><button type="button" onClick={() => moveGallery(index, -1)} disabled={index === 0}>Up</button><button type="button" onClick={() => moveGallery(index, 1)} disabled={index === form.gallery_image_urls.length - 1}>Down</button><button type="button" onClick={() => setForm((current) => ({ ...current, gallery_image_urls: current.gallery_image_urls.filter((_, itemIndex) => itemIndex !== index) }))}>Remove</button><button type="button" onClick={() => setForm((current) => ({ ...current, cover_image_url: url }))}>Set cover</button></div>}</div>)}
+            {form.gallery_image_urls.map((url, index) => <div className="beemun-media-row" key={`${index}-${url}`}><label><span>Gallery image {index + 1}</span><input value={url} disabled={!editable} onChange={(event) => updateGallery(index, event.target.value)} /></label>{url && <img alt="Product gallery preview" src={url} />}{editable && <div><button type="button" onClick={() => moveGallery(index, -1)} disabled={index === 0}>Up</button><button type="button" onClick={() => moveGallery(index, 1)} disabled={index === form.gallery_image_urls.length - 1}>Down</button><button type="button" onClick={() => {
+                        const removedUrl = url
+                        setForm((current) => ({ ...current, gallery_image_urls: current.gallery_image_urls.filter((_, itemIndex) => itemIndex !== index) }))
+                        setMediaFiles((current) => current.filter((file) => file.preview_url !== removedUrl))
+                      }}>Remove</button><button type="button" onClick={() => setForm((current) => ({ ...current, cover_image_url: url }))}>Set cover</button></div>}</div>)}
             {editable && <button className="beemun-btn-secondary" type="button" onClick={() => setForm((current) => ({ ...current, gallery_image_urls: [...current.gallery_image_urls, ""] }))}>Add image URL</button>}
           </div>
         </article>
@@ -547,3 +578,6 @@ export default function ProductReviewEditor({
     </form>
   )
 }
+
+
+

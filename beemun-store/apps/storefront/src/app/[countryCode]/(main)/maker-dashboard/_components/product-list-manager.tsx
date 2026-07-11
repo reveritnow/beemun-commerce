@@ -32,9 +32,17 @@ const idFor = (item: Record<string, any>) =>
 const statusFor = (item: Record<string, any>) => item.product_review?.status || "draft"
 
 const imageFor = (item: Record<string, any>) => {
+  const media = item.product_review?.metadata?.media || {}
+  const privateFiles = Array.isArray(media.private_media_files) ? media.private_media_files : []
+  const privatePreview = privateFiles[0]?.preview_url
+
+  if (privatePreview && item.product_review?.status !== "published") {
+    return privatePreview
+  }
+
   const product = item.product || {}
   const images = Array.isArray(product.images) ? product.images : []
-  return product.thumbnail || images[0]?.url || ""
+  return product.thumbnail || images[0]?.url || media.gallery_image_urls?.[0] || ""
 }
 
 const variantCount = (item: Record<string, any>) =>
@@ -144,3 +152,4 @@ export default function ProductListManager({ countryCode, items }: Props) {
     </div>
   )
 }
+

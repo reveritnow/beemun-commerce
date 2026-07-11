@@ -78,7 +78,7 @@ const uploadWithProvider = async (
     filename,
     mimeType: upload.mime_type,
     content: upload.content_base64,
-    access: "public",
+    access: "private",
   }
 
   if (typeof fileService.createFiles === "function") {
@@ -159,27 +159,32 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     }
 
     const stored = await uploadWithProvider(fileService, upload, req.params.id)
-    const url = stored?.url
+    const fileId = stored?.id
 
-    if (!url) {
+    if (!fileId) {
       throw new ProductPortalError(
-        "The Medusa file provider did not return a usable file URL.",
+        "The Medusa file provider did not return a usable file id.",
         503,
-        "file_url_missing"
+        "file_id_missing"
       )
     }
 
     res.status(201).json({
       file: {
-        id: stored?.id || null,
-        url,
+        id: fileId,
+        file_id: fileId,
+        preview_url: `/api/beemun/maker-dashboard/products/${req.params.id}/media/${fileId}`,
+        admin_url: `/admin/beemun/products/${req.params.id}/media/${fileId}`,
+        public_url: `/store/beemun/products/${req.params.id}/media/${fileId}`,
         original_filename: upload.original_filename,
         mime_type: mimeType,
         file_size: fileSize,
-        storage_provider: "medusa_file_s3",
+        storage_provider: "medusa_file_s3_private",
       },
     })
   } catch (error) {
     handleError(res, error)
   }
 }
+
+
