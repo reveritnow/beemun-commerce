@@ -1,4 +1,4 @@
-﻿# BEEMUN Medusa Backend Deployment
+# BEEMUN Medusa Backend Deployment
 
 This backend is ready for Render, Railway, Koyeb, or any Node host with Postgres. The storefront keeps its fallback behavior, but real catalog, cart, checkout, pricing, regions, and product pages need a live Medusa URL plus publishable key.
 
@@ -85,18 +85,18 @@ After these are set, redeploy Vercel. Homepage products, store listing, product 
 
 Stage 3 maker product media uses Medusa's file module with the `@medusajs/file-s3` provider. BEEMUN should configure this provider against Cloudflare R2 because R2 is S3-compatible and cost-effective for product image storage.
 
-Required Railway backend env vars:
+Required Railway backend env vars for private product uploads:
 
 - `BEEMUN_FILE_BUCKET`: R2 bucket name for product media.
 - `BEEMUN_FILE_ENDPOINT`: R2 S3 API endpoint, for example `https://<account-id>.r2.cloudflarestorage.com`.
 - `BEEMUN_FILE_ACCESS_KEY_ID`: R2 access key ID.
 - `BEEMUN_FILE_SECRET_ACCESS_KEY`: R2 secret access key.
-- `BEEMUN_FILE_PUBLIC_URL`: Public/custom-domain URL used by Medusa file records, for example `https://media.beemun.com`.
+- `BEEMUN_FILE_PUBLIC_URL`: Optional. Medusa file-s3 may record a provider URL when present, but BEEMUN does not expose this URL for draft/review media. Private previews use protected BEEMUN routes, and published products use gated public BEEMUN media routes.
 - `BEEMUN_FILE_REGION`: Use `auto` for Cloudflare R2 unless a different S3 provider requires a region.
 - `BEEMUN_FILE_PREFIX`: Optional. Defaults to `product-media`.
 - `BEEMUN_FILE_FORCE_PATH_STYLE`: Optional. Defaults to `true`, which is appropriate for R2.
 
-Compatibility fallback names are also supported: `S3_BUCKET`, `S3_ENDPOINT`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_FILE_URL`, and `S3_REGION`.
+Compatibility fallback names are also supported: `S3_BUCKET`, `S3_ENDPOINT`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_FILE_URL`, and `S3_REGION`. `S3_FILE_URL` is optional for the same reason as `BEEMUN_FILE_PUBLIC_URL`.
 
 Do not set these values in Vercel. Storefront product media uploads go through the same-origin Next.js route, which forwards to the protected backend route with `BEEMUN_PORTAL_API_SECRET`.
 

@@ -1,6 +1,12 @@
-﻿import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
+import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 
 import { BEEMUN_MARKETPLACE_MODULE } from "../../../../../../../modules/marketplace"
+
+const reviewHasMediaFile = (review: Record<string, any> | undefined, fileId: string) => {
+  const files = review?.metadata?.media?.private_media_files
+
+  return Array.isArray(files) && files.some((file) => file?.file_id === fileId || file?.id === fileId)
+}
 
 const sendFile = async (req: MedusaRequest, res: MedusaResponse, fileId: string) => {
   const fileService = req.scope.resolve("file") as Record<string, any>
@@ -20,7 +26,9 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
     public_visibility_eligible: true,
   })
 
-  if (!reviews[0]) {
+  const publishedReview = reviews.find((review) => reviewHasMediaFile(review, req.params.fileId))
+
+  if (!publishedReview) {
     res.status(404).json({ message: "Product media is not public." })
     return
   }

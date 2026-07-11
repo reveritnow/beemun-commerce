@@ -1,4 +1,4 @@
-﻿import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
+import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 
 import {
   assertPortalAccess,
@@ -6,6 +6,12 @@ import {
   ProductPortalError,
   resolveApprovedMakerProduct,
 } from "../../../product-portal-helpers"
+
+const reviewHasMediaFile = (review: Record<string, any> | undefined, fileId: string) => {
+  const files = review?.metadata?.media?.private_media_files
+
+  return Array.isArray(files) && files.some((file) => file?.file_id === fileId || file?.id === fileId)
+}
 
 const sendFile = async (req: MedusaRequest, res: MedusaResponse, fileId: string) => {
   const fileService = req.scope.resolve("file") as Record<string, any>
@@ -21,7 +27,12 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
   try {
     assertPortalAccess(req)
     const email = emailFromRequest(req)
-    await resolveApprovedMakerProduct(req, req.params.id, email)
+    const context = await resolveApprovedMakerProduct(req, req.params.id, email)
+
+    if (!reviewHasMediaFile(context.review, req.params.fileId)) {
+      throw new ProductPortalError("Product media file was not found for this product.", 404, "media_not_found")
+    }
+
     await sendFile(req, res, req.params.fileId)
   } catch (error) {
     if (error instanceof ProductPortalError) {

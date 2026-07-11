@@ -1,4 +1,4 @@
-﻿import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
+import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 
 import { enforceRateLimit, rateLimitKeyFor } from "../../../rate-limit"
 import {
@@ -36,15 +36,15 @@ const resolveFileService = (req: MedusaRequest) => {
 }
 
 const assertFileProviderConfigured = () => {
+  const endpoint = process.env.BEEMUN_FILE_ENDPOINT || process.env.S3_ENDPOINT
   const missing = [
     ["BEEMUN_FILE_BUCKET", process.env.BEEMUN_FILE_BUCKET || process.env.S3_BUCKET],
-    ["BEEMUN_FILE_ENDPOINT", process.env.BEEMUN_FILE_ENDPOINT || process.env.S3_ENDPOINT],
+    ["BEEMUN_FILE_ENDPOINT", endpoint],
     ["BEEMUN_FILE_ACCESS_KEY_ID", process.env.BEEMUN_FILE_ACCESS_KEY_ID || process.env.S3_ACCESS_KEY_ID],
     [
       "BEEMUN_FILE_SECRET_ACCESS_KEY",
       process.env.BEEMUN_FILE_SECRET_ACCESS_KEY || process.env.S3_SECRET_ACCESS_KEY,
     ],
-    ["BEEMUN_FILE_PUBLIC_URL", process.env.BEEMUN_FILE_PUBLIC_URL || process.env.S3_FILE_URL],
   ].filter(([, value]) => !value)
 
   if (missing.length) {
@@ -54,6 +54,21 @@ const assertFileProviderConfigured = () => {
         .join(", ")}.`,
       503,
       "file_provider_env_missing"
+    )
+  }
+
+  try {
+    const parsedEndpoint = new URL(String(endpoint))
+    const isR2Endpoint = parsedEndpoint.hostname.endsWith(".r2.cloudflarestorage.com")
+
+    if (parsedEndpoint.protocol !== "https:" || !isR2Endpoint) {
+      throw new Error("invalid R2 endpoint")
+    }
+  } catch {
+    throw new ProductPortalError(
+      "Product media storage endpoint is invalid. Use the Cloudflare R2 S3 API endpoint, for example https://<account-id>.r2.cloudflarestorage.com.",
+      503,
+      "file_provider_endpoint_invalid"
     )
   }
 }
