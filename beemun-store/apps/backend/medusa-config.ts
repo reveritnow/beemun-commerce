@@ -1,4 +1,4 @@
-import { loadEnv, defineConfig } from '@medusajs/framework/utils'
+﻿import { loadEnv, defineConfig } from '@medusajs/framework/utils'
 
 loadEnv(process.env.NODE_ENV || 'development', process.cwd())
 
@@ -45,11 +45,38 @@ module.exports = defineConfig({
       authCors: process.env.AUTH_CORS || defaultAdminCors,
       jwtSecret: process.env.JWT_SECRET || "supersecret",
       cookieSecret: process.env.COOKIE_SECRET || "supersecret",
-    }
+    },
   },
   modules: [
     {
       resolve: "./src/modules/marketplace",
     },
+    {
+      resolve: "@medusajs/file",
+      options: {
+        provider: {
+          resolve: "@medusajs/file-s3",
+          id: "beemun-r2",
+          options: {
+            fileUrl: process.env.BEEMUN_FILE_PUBLIC_URL || process.env.S3_FILE_URL,
+            accessKeyId:
+              process.env.BEEMUN_FILE_ACCESS_KEY_ID || process.env.S3_ACCESS_KEY_ID,
+            secretAccessKey:
+              process.env.BEEMUN_FILE_SECRET_ACCESS_KEY ||
+              process.env.S3_SECRET_ACCESS_KEY,
+            region: process.env.BEEMUN_FILE_REGION || process.env.S3_REGION || "auto",
+            bucket: process.env.BEEMUN_FILE_BUCKET || process.env.S3_BUCKET,
+            endpoint: process.env.BEEMUN_FILE_ENDPOINT || process.env.S3_ENDPOINT,
+            prefix: process.env.BEEMUN_FILE_PREFIX || "product-media",
+            cacheControl: "public, max-age=31536000, immutable",
+            additionalClientConfig: {
+              forcePathStyle:
+                (process.env.BEEMUN_FILE_FORCE_PATH_STYLE || "true") !== "false",
+            },
+          },
+        },
+      },
+    },
   ],
 })
+

@@ -80,3 +80,29 @@ For production, at least one admin email must be present in `BEEMUN_APPROVAL_SUP
 The Stage 2 maker approval endpoints include in-memory rate limits for sign-in, application submission, portal actions, document upload/viewing, messages, and tasks. For higher traffic or multi-instance deployments, move the same keys to Redis without changing endpoint behavior.
 
 After these are set, redeploy Vercel. Homepage products, store listing, product page, cart, checkout, and region lookup will use the live backend.
+
+## BEEMUN Product Media Storage
+
+Stage 3 maker product media uses Medusa's file module with the `@medusajs/file-s3` provider. BEEMUN should configure this provider against Cloudflare R2 because R2 is S3-compatible and cost-effective for product image storage.
+
+Required Railway backend env vars:
+
+- `BEEMUN_FILE_BUCKET`: R2 bucket name for product media.
+- `BEEMUN_FILE_ENDPOINT`: R2 S3 API endpoint, for example `https://<account-id>.r2.cloudflarestorage.com`.
+- `BEEMUN_FILE_ACCESS_KEY_ID`: R2 access key ID.
+- `BEEMUN_FILE_SECRET_ACCESS_KEY`: R2 secret access key.
+- `BEEMUN_FILE_PUBLIC_URL`: Public/custom-domain URL used by Medusa file records, for example `https://media.beemun.com`.
+- `BEEMUN_FILE_REGION`: Use `auto` for Cloudflare R2 unless a different S3 provider requires a region.
+- `BEEMUN_FILE_PREFIX`: Optional. Defaults to `product-media`.
+- `BEEMUN_FILE_FORCE_PATH_STYLE`: Optional. Defaults to `true`, which is appropriate for R2.
+
+Compatibility fallback names are also supported: `S3_BUCKET`, `S3_ENDPOINT`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_FILE_URL`, and `S3_REGION`.
+
+Do not set these values in Vercel. Storefront product media uploads go through the same-origin Next.js route, which forwards to the protected backend route with `BEEMUN_PORTAL_API_SECRET`.
+
+Security notes:
+
+- Only approved maker members can upload product media.
+- The backend verifies the product belongs to the signed-in maker before uploading.
+- Product media edits are allowed only for `draft` and `needs_changes` product reviews.
+- Product images are stored as public object URLs so they can render after admin approval and publish. Product visibility is still controlled by Medusa product status plus BEEMUN ZPS approval gates.

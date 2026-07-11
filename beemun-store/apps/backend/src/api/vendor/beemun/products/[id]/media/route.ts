@@ -22,7 +22,7 @@ const handleError = (res: MedusaResponse, error: unknown) => {
   res.status(500).json({
     message:
       error instanceof Error
-        ? error.message
+        ? `Product media upload failed: ${error.message}`
         : "The product media upload could not be completed.",
   })
 }
@@ -35,35 +35,58 @@ const resolveFileService = (req: MedusaRequest) => {
   }
 }
 
+const assertFileProviderConfigured = () => {
+  const missing = [
+    ["BEEMUN_FILE_BUCKET", process.env.BEEMUN_FILE_BUCKET || process.env.S3_BUCKET],
+    ["BEEMUN_FILE_ENDPOINT", process.env.BEEMUN_FILE_ENDPOINT || process.env.S3_ENDPOINT],
+    ["BEEMUN_FILE_ACCESS_KEY_ID", process.env.BEEMUN_FILE_ACCESS_KEY_ID || process.env.S3_ACCESS_KEY_ID],
+    [
+      "BEEMUN_FILE_SECRET_ACCESS_KEY",
+      process.env.BEEMUN_FILE_SECRET_ACCESS_KEY || process.env.S3_SECRET_ACCESS_KEY,
+    ],
+    ["BEEMUN_FILE_PUBLIC_URL", process.env.BEEMUN_FILE_PUBLIC_URL || process.env.S3_FILE_URL],
+  ].filter(([, value]) => !value)
+
+  if (missing.length) {
+    throw new ProductPortalError(
+      `Product media storage is not configured. Missing backend env: ${missing
+        .map(([name]) => name)
+        .join(", ")}.`,
+      503,
+      "file_provider_env_missing"
+    )
+  }
+}
+
+const decodedBase64Size = (content: string) => {
+  try {
+    return Buffer.from(content, "base64").byteLength
+  } catch {
+    return 0
+  }
+}
+
 const uploadWithProvider = async (
   fileService: Record<string, any>,
-  upload: Record<string, any>
+  upload: Record<string, any>,
+  productId: string
 ) => {
+  const originalFilename = String(upload.original_filename || "product-image").trim()
+  const safeFilename = originalFilename.replace(/[^a-zA-Z0-9._-]/g, "-")
+  const filename = `products/${productId}/${Date.now()}-${safeFilename}`
   const payload = {
-    filename: upload.original_filename,
+    filename,
     mimeType: upload.mime_type,
-    mime_type: upload.mime_type,
     content: upload.content_base64,
-    content_base64: upload.content_base64,
     access: "public",
   }
 
   if (typeof fileService.createFiles === "function") {
-    const result = await fileService.createFiles([payload])
-    return Array.isArray(result) ? result[0] : result
-  }
-
-  if (typeof fileService.upload === "function") {
-    return fileService.upload(payload)
-  }
-
-  if (typeof fileService.uploadFiles === "function") {
-    const result = await fileService.uploadFiles([payload])
-    return Array.isArray(result) ? result[0] : result
+    return fileService.createFiles(payload)
   }
 
   throw new ProductPortalError(
-    "Medusa file provider is registered but does not expose a supported upload method.",
+    "Medusa file provider is registered but createFiles is unavailable.",
     503,
     "file_provider_unsupported"
   )
@@ -72,6 +95,7 @@ const uploadWithProvider = async (
 export async function POST(req: MedusaRequest, res: MedusaResponse) {
   try {
     assertPortalAccess(req)
+    assertFileProviderConfigured()
     const body = bodyOf(req)
     const email = emailFromRequest(req)
 
@@ -95,34 +119,54 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     }
 
     if (!allowedMimeTypes.has(mimeType)) {
-      throw new ProductPortalError("Product images must be JPG, PNG, or WEBP.", 400, "unsupported_file_type")
+      throw new ProductPortalError(
+        "Product images must be JPG, JPEG, PNG, or WEBP.",
+        400,
+        "unsupported_file_type"
+      )
     }
 
     if (!Number.isFinite(fileSize) || fileSize <= 0 || fileSize > maxProductImageSize) {
       throw new ProductPortalError("Product images must be 4 MB or smaller.", 400, "file_too_large")
     }
 
+    if (decodedBase64Size(contentBase64) !== fileSize) {
+      throw new ProductPortalError(
+        "Uploaded image size does not match the file data. Please retry the upload.",
+        400,
+        "invalid_file_size"
+      )
+    }
+
     const context = await resolveApprovedMakerProduct(req, req.params.id, email)
 
     if (!["draft", "needs_changes"].includes(context.review.status)) {
-      throw new ProductPortalError("Product media is locked while BEEMUN is reviewing it.", 409, "product_locked")
+      throw new ProductPortalError(
+        "Product media is locked while BEEMUN is reviewing it.",
+        409,
+        "product_locked"
+      )
     }
 
     const fileService = resolveFileService(req)
 
     if (!fileService) {
       throw new ProductPortalError(
-        "Product media upload needs a Medusa file provider. Configure S3, R2, or another Medusa file provider, then retry.",
+        "Product media upload needs Medusa's file module. Confirm the backend file module is enabled and redeployed.",
         503,
         "file_provider_missing"
       )
     }
 
-    const stored = await uploadWithProvider(fileService, upload)
-    const url = stored?.url || stored?.file_url || stored?.path || stored?.key
+    const stored = await uploadWithProvider(fileService, upload, req.params.id)
+    const url = stored?.url
 
     if (!url) {
-      throw new ProductPortalError("The Medusa file provider did not return a usable file URL.", 503, "file_url_missing")
+      throw new ProductPortalError(
+        "The Medusa file provider did not return a usable file URL.",
+        503,
+        "file_url_missing"
+      )
     }
 
     res.status(201).json({
@@ -132,7 +176,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
         original_filename: upload.original_filename,
         mime_type: mimeType,
         file_size: fileSize,
-        storage_provider: "medusa_file_provider",
+        storage_provider: "medusa_file_s3",
       },
     })
   } catch (error) {
