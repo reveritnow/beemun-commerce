@@ -24,8 +24,9 @@ export const getMakerPortalDataByEmail = async (
   email?: string | null
 ): Promise<MakerPortalData | null> => {
   const backendUrl = process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL
+  const portalSecret = process.env.BEEMUN_PORTAL_API_SECRET
 
-  if (!email || !backendUrl) {
+  if (!email || !backendUrl || !portalSecret) {
     return null
   }
 
@@ -34,7 +35,12 @@ export const getMakerPortalDataByEmail = async (
       `${cleanBackendUrl(backendUrl)}/vendor/beemun/portal?email=${encodeURIComponent(
         email
       )}`,
-      { cache: "no-store" }
+      {
+        cache: "no-store",
+        headers: {
+          "x-beemun-portal-secret": portalSecret,
+        },
+      }
     )
 
     if (!response.ok) {

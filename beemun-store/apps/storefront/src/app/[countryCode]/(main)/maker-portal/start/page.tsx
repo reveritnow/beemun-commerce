@@ -19,6 +19,10 @@ export default async function MakerPortalStartPage({
 
   const portalData = await getMakerPortalDataByEmail(email)
 
+  if (portalData?.vendor?.status === "approved") {
+    redirect(`/${countryCode}/maker-dashboard`)
+  }
+
   if (portalData?.vendor) {
     redirect(`/${countryCode}/maker-portal`)
   }

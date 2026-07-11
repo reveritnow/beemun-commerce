@@ -1,5 +1,6 @@
 import { Metadata } from "next"
 import { redirect } from "next/navigation"
+import { getMakerPortalDataByEmail } from "../../../../lib/data/maker-portal"
 import { getBeemunSession } from "../../../../lib/get-session"
 import MakerPortalClient from "./portal-client"
 
@@ -21,6 +22,12 @@ export default async function MakerPortalPage({
     redirect(
       `/${countryCode}/maker-portal/sign-in?callbackUrl=/${countryCode}/maker-portal`
     )
+  }
+
+  const portalData = await getMakerPortalDataByEmail((session as any).user.email)
+
+  if (portalData?.vendor?.status === "approved") {
+    redirect(`/${countryCode}/maker-dashboard`)
   }
 
   return <MakerPortalClient countryCode={countryCode} />
