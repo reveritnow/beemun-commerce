@@ -1,4 +1,4 @@
-import "server-only"
+﻿import "server-only"
 
 import { cache } from "react"
 import { redirect } from "next/navigation"
@@ -10,6 +10,7 @@ export type MakerDashboardData = {
   vendor: Record<string, any> | null
   member: Record<string, any> | null
   vendor_products: Array<Record<string, any>>
+  product_items?: Array<Record<string, any>>
   product_reviews: Array<Record<string, any>>
   documents: Array<Record<string, any>>
   tasks: Array<Record<string, any>>
@@ -87,3 +88,5 @@ export const getApprovedMakerDashboardContext = async (
     user,
   }
 }
+
+

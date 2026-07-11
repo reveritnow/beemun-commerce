@@ -1,5 +1,24 @@
+﻿import Link from "next/link"
+
 import { getApprovedMakerDashboardContext } from "../../../../../lib/data/maker-dashboard"
 import { MakerDashboardEmpty, reviewStatusLabel } from "../_components/dashboard-ui"
+
+const allStatuses = [
+  "draft",
+  "submitted",
+  "automatic_checks",
+  "pending_zps_review",
+  "needs_changes",
+  "approved",
+  "rejected",
+  "published",
+]
+
+const productTitle = (item: Record<string, any>) =>
+  item.product?.title || item.product_review?.product_id || item.vendor_product?.product_id
+
+const productId = (item: Record<string, any>) =>
+  item.product?.id || item.product_review?.product_id || item.vendor_product?.product_id
 
 export default async function MakerDashboardProductsPage({
   params,
@@ -8,16 +27,16 @@ export default async function MakerDashboardProductsPage({
 }) {
   const { countryCode } = await params
   const context = await getApprovedMakerDashboardContext(countryCode)
-  const products = context.vendor_products || []
+  const products = context.product_items || []
 
   if (!products.length) {
     return (
       <MakerDashboardEmpty
         title="No maker products are linked yet"
-        body="When product onboarding opens, approved makers will create Medusa draft products that are linked to this BEEMUN maker profile and routed into ZPS review."
+        body="Create a Medusa draft product through BEEMUN product onboarding. It will stay private until BEEMUN approves and publishes it."
         action={{
           href: `/${countryCode}/maker-dashboard/product-onboarding`,
-          label: "View product onboarding",
+          label: "Start product onboarding",
         }}
       />
     )
@@ -27,25 +46,40 @@ export default async function MakerDashboardProductsPage({
     <div className="beemun-dashboard-grid">
       <article className="beemun-dashboard-card beemun-dashboard-card-wide">
         <p className="beemun-eyebrow">Products</p>
-        <h2>Linked maker products</h2>
+        <h2>Maker product review loop</h2>
         <p>
-          These products are connected to your maker profile. Public visibility
-          still depends on Medusa published status and BEEMUN ZPS approval.
+          Track every product from draft to BEEMUN approval. Makers can edit
+          only Draft and Needs Changes products; publishing remains an admin
+          action.
         </p>
+        <div className="beemun-status-strip">
+          {allStatuses.map((status) => (
+            <span key={status}>{reviewStatusLabel(status)}</span>
+          ))}
+        </div>
       </article>
-      {products.map((product) => {
-        const review = context.product_reviews.find(
-          (item) => item.vendor_product_id === product.id
-        )
+      {products.map((item) => {
+        const review = item.product_review
+        const id = productId(item)
+        const editable = ["draft", "needs_changes"].includes(review?.status)
 
         return (
-          <article className="beemun-dashboard-card" key={product.id}>
+          <article className="beemun-dashboard-card beemun-product-list-card" key={id}>
             <p className="beemun-eyebrow">Product</p>
-            <h2>{product.product_id}</h2>
-            <p>Relationship: {product.relationship_type || "maker"}</p>
-            <span className="beemun-dashboard-chip">
-              {reviewStatusLabel(review?.status)}
-            </span>
+            <h2>{productTitle(item)}</h2>
+            <p>{item.product?.subtitle || item.product?.handle || "BEEMUN maker product"}</p>
+            <div className="beemun-product-card-meta">
+              <span className="beemun-dashboard-chip">
+                {reviewStatusLabel(review?.status)}
+              </span>
+              <span>{editable ? "Editable" : "Read-only"}</span>
+            </div>
+            <Link
+              className="beemun-btn-secondary"
+              href={`/${countryCode}/maker-dashboard/products/${id}`}
+            >
+              Open product
+            </Link>
           </article>
         )
       })}

@@ -1493,3 +1493,125 @@
     grid-template-columns: 1fr;
   }
 }
+
+.beemun-status-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+}
+
+.beemun-status-strip span,
+.beemun-product-card-meta span:last-child {
+  border: 1px solid rgba(45, 84, 64, 0.18);
+  border-radius: 999px;
+  color: var(--beemun-forest);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 0.42rem 0.72rem;
+  text-transform: uppercase;
+}
+
+.beemun-product-list-card {
+  min-height: 250px;
+}
+
+.beemun-product-card-meta {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: 1rem 0;
+}
+
+.beemun-product-editor {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.beemun-product-editor-hero {
+  align-items: flex-start;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.beemun-change-request-card {
+  border-color: rgba(153, 93, 50, 0.32);
+  background: #fff8ef;
+}
+
+.beemun-product-editor-grid {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.beemun-product-editor-grid .beemun-dashboard-card-wide {
+  grid-column: 1 / -1;
+}
+
+.beemun-product-variant-stack,
+.beemun-product-event-list {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.beemun-product-variant-stack > div,
+.beemun-product-event-list > div {
+  border: 1px solid rgba(42, 61, 49, 0.12);
+  border-radius: 16px;
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.9rem;
+}
+
+.beemun-product-variant-stack strong,
+.beemun-product-event-list strong {
+  color: var(--beemun-ink);
+}
+
+.beemun-product-variant-stack span,
+.beemun-product-event-list span {
+  color: var(--beemun-muted);
+  font-size: 0.86rem;
+}
+
+.beemun-product-editor-actions {
+  align-items: center;
+  backdrop-filter: blur(14px);
+  background: rgba(252, 250, 244, 0.92);
+  border: 1px solid rgba(42, 61, 49, 0.12);
+  border-radius: 20px;
+  bottom: 1rem;
+  box-shadow: 0 18px 44px rgba(42, 61, 49, 0.12);
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  padding: 0.8rem;
+  position: sticky;
+  z-index: 5;
+}
+
+.beemun-product-editor-actions button:disabled,
+.beemun-product-editor button:disabled,
+.beemun-product-editor input:disabled,
+.beemun-product-editor select:disabled,
+.beemun-product-editor textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
+}
+
+@media (max-width: 860px) {
+  .beemun-product-editor-hero,
+  .beemun-product-editor-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .beemun-product-editor-grid {
+    grid-template-columns: 1fr;
+  }
+}
