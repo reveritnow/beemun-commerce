@@ -48,6 +48,10 @@ const assertFileProviderConfigured = () => {
   ].filter(([, value]) => !value)
 
   if (missing.length) {
+    if (process.env.NODE_ENV !== "production") {
+      return
+    }
+
     throw new ProductPortalError(
       `Product media storage is not configured. Missing backend env: ${missing
         .map(([name]) => name)
